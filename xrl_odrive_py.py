@@ -256,26 +256,25 @@ def cleanQuit():
     print('-----------------Quit!')
     sys.exit(0)
 
-
 def odrv_comm(leg, joint):
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
     #if control_mode == pos_control:
         #TODO do math so that thtDesired is correct format for odrvs
 
     ### Send Commands
-    odrvs[leg][joint].motor0.set_pos_setpoint(thtDesired[leg][joint][0])
-    odrvs[leg][joint].motor1.set_pos_setpoint(thtDesired[leg][joint][1])
-    #if control_mode == vel_control:
-    odrvs[leg][joint].motor0.set_vel_setpoint(velDesired[leg][joint][0])
-    odrvs[leg][joint].motor1.set_vel_setpoint(velDesired[leg][joint][1])
-    #update thtActual and velActual
+    #set mixed setpoint, frontal = 0
+    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0)
+    #set mixed gains, frontal = 0
+    odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint], 0)
 
 
     ### Read Current States
+    #position
     thtActual[leg][joint][0] = odrvs[leg][joint].motor0.pos_setpoint
     thtActual[leg][joint][1] = odrvs[leg][joint].motor1.pos_setpoint
-    velActual[leg][joint][0] = odrvs[leg][joint].motor0.vel_setpoint
-    velActual[leg][joint][1] = odrvs[leg][joint].motor1.vel_setpoint
+    #velocity - vel_setpoint or pll_vel or vel_estimate?
+    velActual[leg][joint][0] = odrvs[leg][joint].motor0.vel_estimate
+    velActual[leg][joint][1] = odrvs[leg][joint].motor1.vel_estimate
     #current_setpoint is probably incorrect
     curCommand[leg][joint][0] = odrvs[leg][joint].motor0.current_setpoint
     curCommand[leg][joint][1] = odrvs[leg][joint].motor1.current_setpoint
@@ -365,21 +364,21 @@ def full_init(reset = False):
             #motor current limit
             odrvs[leg][joint].axis0.motor.config.current_lim = 50
             odrvs[leg][joint].axis1.motor.config.current_lim = 50
-            
+
             #Calibration Max Voltage
             odrvs[leg][joint].axis0.motor.config.resistance_calib_max_voltage = 4
             odrvs[leg][joint].axis1.motor.config.resistance_calib_max_voltage = 4
-            
+
             #motor calibration current
             odrvs[leg][joint].axis0.motor.config.calibration_current = 15
             odrvs[leg][joint].axis1.motor.config.calibration_current = 15
-            
+
             #brake resistance
             odrvs[leg][joint].config.brake_resistance = 0
 
             # Change velocity pll bandwidth high temporarily to ensure calibration works well
             odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(1570)
-            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570) 
+            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570)
 
             time.sleep(1)
 
@@ -393,9 +392,9 @@ def full_init(reset = False):
     print("Saving Configuration...")
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
-            # Change velocity pll bandwidth back 
+            # Change velocity pll bandwidth back
             odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(157)
-            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(157) 
+            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(157)
 
             #motor and encoder pre_calibrated
             if(odrvs[leg][joint].axis0.error == 0):
@@ -404,26 +403,26 @@ def full_init(reset = False):
             else:
                 odrvs[leg][joint].axis0.motor.config.pre_calibrated = False
                 odrvs[leg][joint].axis0.encoder.config.pre_calibrated = False
-                
+
             if(odrvs[leg][joint].axis1.error == 0):
                 odrvs[leg][joint].axis1.motor.config.pre_calibrated = True
                 odrvs[leg][joint].axis1.encoder.config.pre_calibrated = True
             else:
                 odrvs[leg][joint].axis1.motor.config.pre_calibrated = False
                 odrvs[leg][joint].axis1.encoder.config.pre_calibrated = False
-                
+
             #gear ratio
             odrvs[leg][joint].axis0.controller.config.gear_ratio = 1#gear_ratios[joint]
             odrvs[leg][joint].axis1.controller.config.gear_ratio = 1#gear_ratios[joint]
-            
+
             #gear ratio
             odrvs[leg][joint].axis0.controller.config.torque_constant = 0.45#Nm/A
             odrvs[leg][joint].axis1.controller.config.torque_constant = 0.45
-            
+
             #Control Mode
             odrvs[leg][joint].axis0.controller.config.control_mode = 4 #Switch to pure Impedance control
             odrvs[leg][joint].axis1.controller.config.control_mode = 4
-            
+
             #Set closed loop gains
             odrvs[leg][joint].axis0.controller.config.pos_gain = 0.0005
             odrvs[leg][joint].axis1.controller.config.pos_gain = 0.0005
@@ -433,7 +432,7 @@ def full_init(reset = False):
             #axis state
             odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
             odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-            
+
             # save configuration
             odrvs[leg][joint].save_configuration()
 
@@ -456,7 +455,7 @@ for leg in range(len(odrvs)):
         odrvs[leg][joint].axis1.controller.config.vel_gain = 0*CPR2RAD
         odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
         odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-"""`
+"""
 
 #odrive.utils.start_liveplotter(lambda:[(odrvs[leg][joint].axis0.encoder.pos_estimate,odrvs[leg][joint].axis0.encoder.pos_estimate) for leg in range(len(odrvs)) for joint in range(len(odrvs[0]))])
 #start_liveplotter(lambda:[odrv0.axis0.encoder.pos_estimate, odrv0.axis1.encoder.pos_estimate,odrv1.axis0.encoder.pos_estimate, odrv1.axis1.encoder.pos_estimate,odrv2.axis0.encoder.pos_estimate, odrv2.axis1.encoder.pos_estimate,odrv3.axis0.encoder.pos_estimate, odrv3.axis1.encoder.pos_estimate,odrv4.axis0.encoder.pos_estimate, odrv4.axis1.encoder.pos_estimate,odrv5.axis0.encoder.pos_estimate, odrv5.axis1.encoder.pos_estimate])
