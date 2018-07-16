@@ -263,19 +263,19 @@ def odrv_comm(leg, joint):
         #TODO do math so that thtDesired is correct format for odrvs
 
     ### Send Commands
-    odrvs[leg][joint].motor0.set_pos_setpoint(thtDesired[leg][joint][0])
-    odrvs[leg][joint].motor1.set_pos_setpoint(thtDesired[leg][joint][1])
-    #if control_mode == vel_control:
-    odrvs[leg][joint].motor0.set_vel_setpoint(velDesired[leg][joint][0])
-    odrvs[leg][joint].motor1.set_vel_setpoint(velDesired[leg][joint][1])
-    #update thtActual and velActual
+    #set mixed setpoint, frontal = 0
+    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0)
+    #set mixed gains, frontal = 0
+    odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint], 0)
 
 
     ### Read Current States
+    #position
     thtActual[leg][joint][0] = odrvs[leg][joint].motor0.pos_setpoint
     thtActual[leg][joint][1] = odrvs[leg][joint].motor1.pos_setpoint
-    velActual[leg][joint][0] = odrvs[leg][joint].motor0.vel_setpoint
-    velActual[leg][joint][1] = odrvs[leg][joint].motor1.vel_setpoint
+    #velocity - vel_setpoint or pll_vel or vel_estimate?
+    velActual[leg][joint][0] = odrvs[leg][joint].motor0.vel_estimate
+    velActual[leg][joint][1] = odrvs[leg][joint].motor1.vel_estimate
     #current_setpoint is probably incorrect
     curCommand[leg][joint][0] = odrvs[leg][joint].motor0.current_setpoint
     curCommand[leg][joint][1] = odrvs[leg][joint].motor1.current_setpoint
