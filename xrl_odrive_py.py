@@ -377,17 +377,17 @@ def full_init(reset = False):
             #brake resistance
             odrvs[leg][joint].config.brake_resistance = 0
 
-            # Change velocity pll bandwidth high temporarily to ensure calibration works well
-            odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(1570)
-            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570) 
-
-            time.sleep(1)
-
             #axis state
             if(odrvs[leg][joint].axis0.motor.config.pre_calibrated == False):
+                odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(1570)
+                time.sleep(1)
                 odrvs[leg][joint].axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
             if(odrvs[leg][joint].axis1.motor.config.pre_calibrated == False):
+                # Change velocity pll bandwidth high temporarily to ensure calibration works well
+                odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570) 
+                time.sleep(1)
                 odrvs[leg][joint].axis1.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+                time.sleep(1)
     print("Done doing setup.")
     time.sleep(20)
     print("Saving Configuration...")
@@ -442,21 +442,21 @@ def full_init(reset = False):
 
 signal.signal(signal.SIGINT, cleanQuitInt)
 
-full_init(reset = True)
-time.sleep(5)
-printErrorStates()
+# full_init(reset = True)
+# time.sleep(5)
+# printErrorStates()
 
-"""
+
 for leg in range(len(odrvs)):
     for joint in range(len(odrvs[0])):
         #Note that mixed impedance control units are in radians already!
-        odrvs[leg][joint].axis0.controller.config.pos_gain = 1*CPR2RAD #Need 450 to 900 max
-        odrvs[leg][joint].axis1.controller.config.pos_gain = 1*CPR2RAD
-        odrvs[leg][joint].axis0.controller.config.vel_gain = 0*CPR2RAD #1.5 causes shakes. Need 2.177
-        odrvs[leg][joint].axis1.controller.config.vel_gain = 0*CPR2RAD
+        odrvs[leg][joint].axis0.controller.config.pos_gain = 10*CPR2RAD #10 with no gearing is ok. 100 was violent. Need 450 to 900 max
+        odrvs[leg][joint].axis1.controller.config.pos_gain = 10*CPR2RAD
+        odrvs[leg][joint].axis0.controller.config.vel_gain = 0.75*CPR2RAD #1 with no gearing causes light shakes = 48/15 = 3.2Nms/rad per motor at joint. Nice! Need 2.177 overall
+        odrvs[leg][joint].axis1.controller.config.vel_gain = 0.75*CPR2RAD
         odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
         odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-"""`
+
 
 #odrive.utils.start_liveplotter(lambda:[(odrvs[leg][joint].axis0.encoder.pos_estimate,odrvs[leg][joint].axis0.encoder.pos_estimate) for leg in range(len(odrvs)) for joint in range(len(odrvs[0]))])
 #start_liveplotter(lambda:[odrv0.axis0.encoder.pos_estimate, odrv0.axis1.encoder.pos_estimate,odrv1.axis0.encoder.pos_estimate, odrv1.axis1.encoder.pos_estimate,odrv2.axis0.encoder.pos_estimate, odrv2.axis1.encoder.pos_estimate,odrv3.axis0.encoder.pos_estimate, odrv3.axis1.encoder.pos_estimate,odrv4.axis0.encoder.pos_estimate, odrv4.axis1.encoder.pos_estimate,odrv5.axis0.encoder.pos_estimate, odrv5.axis1.encoder.pos_estimate])
