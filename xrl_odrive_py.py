@@ -273,15 +273,7 @@ def cleanQuit():
 def odrv_comm(leg, joint):
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
     ### Send Commands
-<<<<<<< HEAD
-=======
-    #set mixed setpoint, frontal = 0
-    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0)
-    #set mixed gains, frontal = 0
-    odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint], 0)
->>>>>>> origin/master
 
-    #thtDesired should be within range 0 to 20ish
     ###Mixed Position Control
     #both, sagittal, frontal
     odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
@@ -291,11 +283,10 @@ def odrv_comm(leg, joint):
     #odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0, velDesired[leg][joint][0], 0)
 
     ###Mixed Gains
-    #odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kpS=kP[leg][joint][0], kpF=0, kdS=kd[leg][joint][0], kdF=0)
+    odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kpS=kP[leg][joint][0], kpF=0, kdS=kd[leg][joint][0], kdF=0)
 
     ### Read Current States
     #position
-<<<<<<< HEAD
     thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate
     thtActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pos_estimate
     #velocity
@@ -304,73 +295,7 @@ def odrv_comm(leg, joint):
     #current
     curCommand[leg][joint][0] = odrvs[leg][joint].axis0.motor.current_control.Iq_measured
     curCommand[leg][joint][1] = odrvs[leg][joint].axis1.motor.current_control.Iq_measured
-=======
-    thtActual[leg][joint][0] = odrvs[leg][joint].motor0.pos_setpoint
-    thtActual[leg][joint][1] = odrvs[leg][joint].motor1.pos_setpoint
-    #velocity - vel_setpoint or pll_vel or vel_estimate?
-    velActual[leg][joint][0] = odrvs[leg][joint].motor0.vel_estimate
-    velActual[leg][joint][1] = odrvs[leg][joint].motor1.vel_estimate
-    #current_setpoint is probably incorrect
-    curCommand[leg][joint][0] = odrvs[leg][joint].motor0.current_setpoint
-    curCommand[leg][joint][1] = odrvs[leg][joint].motor1.current_setpoint
->>>>>>> origin/master
 
-    '''
-    TODO This is a part that needs to get translated into odrivetool functions:
-
-    sendVals = struct.pack('dddddddd',\
-                             thtDesired[leg][joint][0],\
-                             thtDesired[leg][joint][1],\
-                             velDesired[leg][joint][0],\
-                             velDesired[leg][joint][1],\
-                             kP[leg][joint][0],\
-                             kP[leg][joint][1],\
-                             kD[leg][joint][0],\
-                             kD[leg][joint][1])
-    msgOut = b'E'+sendVals+b'\n'
-    '''
-
-
-'''
-def doComm2(leg,joint):
-    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
-    sendVals = struct.pack('dddddddd',\
-                             thtDesired[leg][joint][0],\
-                             thtDesired[leg][joint][1],\
-                             velDesired[leg][joint][0],\
-                             velDesired[leg][joint][1],\
-                             kP[leg][joint][0],\
-                             kP[leg][joint][1],\
-                             kD[leg][joint][0],\
-                             kD[leg][joint][1])
-    msgOut = b'E'+sendVals+b'\n'
-    #print(msgOut) #for debug
-    ss[leg][joint].write(msgOut)
-    #time.sleep(0.000005)
-    msg = ss[leg][joint].read(1)
-    #print('Msg1: ',msg) #fordebug
-    if(msg!=b'S' or msg!=b'T'):
-        if(msg==b'b'):
-            msg = ss[leg][joint].readline()
-            print(str(msg))
-        msg = ss[leg][joint].read(1)
-    #print('Msg2: ',msg) #for debug
-    if(msg == b'S' or msg == b'T'):
-        if msg == b'S':
-            msg = ss[leg][joint].read(1)
-        msg = ss[leg][joint].read(6*8+1)
-        if(len(msg) == 6*8+1):
-            thtActual[leg][joint][0] = struct.unpack('d', msg[0:8])[0]
-            thtActual[leg][joint][1] = struct.unpack('d', msg[8:16])[0]
-            velActual[leg][joint][0] = struct.unpack('d', msg[16:24])[0]
-            velActual[leg][joint][1] = struct.unpack('d', msg[24:32])[0]
-            curCommand[leg][joint][0] = struct.unpack('d', msg[32:40])[0]
-            curCommand[leg][joint][1] = struct.unpack('d', msg[40:48])[0]
-        else:
-            print(msg,'\n', len(msg))
-    else:
-        print('From ',str(leg),str(joint),'Not S: ',msg,'\n', len(msg))
-'''
 def cleanQuitInt(signal, frame):
     cleanQuit()
 def niceList(theList):
@@ -412,15 +337,6 @@ def full_init(reset = False):
             #brake resistance
             odrvs[leg][joint].config.brake_resistance = 0
 
-<<<<<<< HEAD
-            # Change velocity pll bandwidth high temporarily to ensure calibration works well
-            odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(1570)
-            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570)
-
-            time.sleep(1)
-
-=======
->>>>>>> origin/master
             #axis state
             if(odrvs[leg][joint].axis0.motor.config.pre_calibrated == False):
                 odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(1570)
@@ -428,7 +344,7 @@ def full_init(reset = False):
                 odrvs[leg][joint].axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
             if(odrvs[leg][joint].axis1.motor.config.pre_calibrated == False):
                 # Change velocity pll bandwidth high temporarily to ensure calibration works well
-                odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570) 
+                odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(1570)
                 time.sleep(1)
                 odrvs[leg][joint].axis1.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
                 time.sleep(1)
@@ -486,17 +402,12 @@ def full_init(reset = False):
 
 signal.signal(signal.SIGINT, cleanQuitInt)
 
-<<<<<<< HEAD
-#full_init(reset = True)
-#time.sleep(5)
-#printErrorStates()
+
 main()
-=======
 # full_init(reset = True)
 # time.sleep(5)
 # printErrorStates()
-
->>>>>>> origin/master
+"""
 
 for leg in range(len(odrvs)):
     for joint in range(len(odrvs[0])):
@@ -507,11 +418,9 @@ for leg in range(len(odrvs)):
         odrvs[leg][joint].axis1.controller.config.vel_gain = 0.75*CPR2RAD
         odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
         odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-<<<<<<< HEAD
-"""
-=======
 
->>>>>>> origin/master
+"""
+
 
 #odrive.utils.start_liveplotter(lambda:[(odrvs[leg][joint].axis0.encoder.pos_estimate,odrvs[leg][joint].axis0.encoder.pos_estimate) for leg in range(len(odrvs)) for joint in range(len(odrvs[0]))])
 #start_liveplotter(lambda:[odrv0.axis0.encoder.pos_estimate, odrv0.axis1.encoder.pos_estimate,odrv1.axis0.encoder.pos_estimate, odrv1.axis1.encoder.pos_estimate,odrv2.axis0.encoder.pos_estimate, odrv2.axis1.encoder.pos_estimate,odrv3.axis0.encoder.pos_estimate, odrv3.axis1.encoder.pos_estimate,odrv4.axis0.encoder.pos_estimate, odrv4.axis1.encoder.pos_estimate,odrv5.axis0.encoder.pos_estimate, odrv5.axis1.encoder.pos_estimate])
