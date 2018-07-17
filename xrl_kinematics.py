@@ -87,7 +87,7 @@ def FrontalIK(x,y,tht_x = 0):
     y_hipL = y + w_hip/2*sin(tht_x) + l_hip*cos(tht_x)-h_3
     x_hipR = x + w_hip/2*cos(tht_x+pi) + l_hip*sin(tht_x)
     y_hipR = y + w_hip/2*sin(tht_x+pi) + l_hip*cos(tht_x)-h_3
-    
+
     #   Solve for left and right leg
     #print(norm([x_hipL-w_base/2, y_hipL]))
     #print((x_hipL-w_base/2,y_hipL))
@@ -117,8 +117,8 @@ def FrontalIK(x,y,tht_x = 0):
     tht1R = -(tht1R+tht2R) + pi/2 + tht_x
     #return(((-tht3L)*RAD2DEG, tht2L*RAD2DEG, (tht1L-pi/2)*RAD2DEG),\
     #       ((-tht3R)*RAD2DEG, tht2R*RAD2DEG, (tht1R-pi/2)*RAD2DEG))
-    return(((tht1L)*RAD2DEG, tht2L*RAD2DEG, (tht3L)*RAD2DEG),\
-           ((tht1R)*RAD2DEG, tht2R*RAD2DEG, (tht3R)*RAD2DEG))
+    return(((tht1L), tht2L, (tht3L)),\
+           ((tht1R), tht2R, (tht3R)))
 
 def TwoLinkIK(x, y, l_1, l_2, opt = 0):
     alpha = np.arctan2(y,x)
