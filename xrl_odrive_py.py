@@ -20,6 +20,7 @@ import signal
 import sys
 import xrl_kinematics as xrlk
 from dataLogger import *
+import xrl_odrive as xrlo
 
 in2mm = 25.4
 mm2in = 1/in2mm
@@ -100,6 +101,8 @@ def printErrorStates():
 
 def main():
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t
+
+    ### LOGGER
     myLogger.appendData('\n--NewTrial--\n')
     titleStr = 't,'
     for i in range(0,len(odrvs)):
@@ -115,14 +118,18 @@ def main():
             for k in range(0,2):
                 titleStr+='cmd'+str(i)+str(j)+str(k)+','
     myLogger.appendData(titleStr)
+
+    ###INITIAL STATE
     state = 'home'
     tStart = time.time()
-    for i in range(0,len(odrvs)):
-        for j in range(0,len(odrvs[0])):
-            odrvs[leg][joint].axis0.controller.config.control_mode = 5
-            odrvs[leg][joint].axis1.controller.config.control_mode = 5
-            odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-            odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+
+    ###SET CONTROL MODES
+    xrlo.mixed_config_all(odrvs)
+
+    ### SET THE MIXED GAINS
+    xrlo.ramp_up_gains_all_sagittal(1, 0.1, odrvs)
+    xrlo.ramp_up_gains_all_frontal(40, 0.5, odrvs)
+
     commAll()
     print('-----------------Begin')
     print('-------------------------------State: ',state)
@@ -150,6 +157,8 @@ def main():
                 #state = 'squatdown'
                 state = 'waitforsquat'
                 #state = 'holdZero'
+                #state = 'configure'
+                #state = 'waitforspin'
                 print('-------------------------------State: ',state)
                 tStartSquat = t
         elif(state == 'holdZero'):
@@ -172,6 +181,40 @@ def main():
             print('-------------------------------State: ',state)
             t = time.time() - tStart
             tStartSquat = t
+        elif(state == 'waitforspin'):
+            while True:
+                i = input("Press Enter to continue or q+Enter to quit...")
+                if not i:
+                    break
+                if i=='q':
+                    cleanQuit()
+            print("Spinning in 3...")
+            time.sleep(1)
+            print("             2...")
+            time.sleep(1)
+            print("             1...")
+            time.sleep(1)
+            state = 'spintest'
+            print('-------------------------------State: ',state)
+            t = time.time() - tStart
+            tStartSpin = t
+        elif(state == 'configure'):
+            pass
+            ### mess with gains, mess with other stuff, initialize?
+        elif(state == 'slowspintozero'):
+
+            spinTime = 14
+            spinRad = 7
+            tSpin = time.time() - tStartSpin
+            if tSpin < spinTime/2:
+                sagittal_pos = spinRad * (2*t/spinTime)
+            else:
+                sagittal_pos = spinRad * (1-((t-spinTime/2)/spinTime))
+            for leg in range(0,len(odrvs)):
+                for joint in range(0,len(odrvs[0])):
+                    thtDesired[leg][joint][0] = sagittal_pos
+                    thtDesired[leg][joint][1] = sagittal_pos
+
         elif(state == 'idle'): # wait for user command to perform a squat
             # if user hits enter?
             state = 'idle'
@@ -283,7 +326,7 @@ def odrv_comm(leg, joint):
     #odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0, velDesired[leg][joint][0], 0)
 
     ###Mixed Gains
-    odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kpS=kP[leg][joint][0], kpF=0, kdS=kd[leg][joint][0], kdF=0)
+    #odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint][0], 0)
 
     ### Read Current States
     #position
@@ -354,8 +397,8 @@ def full_init(reset = False):
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
             # Change velocity pll bandwidth back
-            odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(157)
-            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(157)
+            odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(314)
+            odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(314)
 
             #motor and encoder pre_calibrated
             if(odrvs[leg][joint].axis0.error == 0):
