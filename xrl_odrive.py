@@ -51,21 +51,32 @@ myLogger = dataLogger('data.txt')
 odrvs = [[None, None, None], [None, None, None]]
 
 '''[[right hip, right knee, right ankle], [left hip, left knee, left ankle]]'''
+#0,0 = '367333693037'
 usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
 
-
+def connect_all():
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if usb_serials[leg][joint] == None:
+                continue
+            print("finding odrive: " + usb_serials[leg][joint] + "...")
+            odrvs[leg][joint] = odrive.find_any(serial_number = usb_serials[leg][joint])
+            print("found odrive! leg: " + str(leg) + ", joint: " + str(joint))
 
 def full_init(reset = False):
     if(reset):
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
                 odrvs[leg][joint].axis0.motor.config.pre_calibrated = False
                 odrvs[leg][joint].axis0.encoder.config.pre_calibrated = False
                 odrvs[leg][joint].axis1.motor.config.pre_calibrated = False
                 odrvs[leg][joint].axis1.encoder.config.pre_calibrated = False
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
-
+            if odrvs[leg][joint] == None:
+                continue
             #motor current limit
             odrvs[leg][joint].axis0.motor.config.current_lim = 50
             odrvs[leg][joint].axis1.motor.config.current_lim = 50
@@ -97,6 +108,8 @@ def full_init(reset = False):
     print("Saving Configuration...")
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             # Change velocity pll bandwidth back
             odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(314)
             odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(314)
@@ -146,6 +159,8 @@ def full_init(reset = False):
 
 
 def single_init(leg, joint, motor, reset = False):
+    if odrvs[leg][joint] == None:
+        return
     if (reset):
         if motor == 0:
             odrvs[leg][joint].axis0.motor.config.pre_calibrated = False
@@ -253,15 +268,30 @@ def single_init(leg, joint, motor, reset = False):
     print("Done initializing!")
 
 
-def mixed_config_all(odrvs):
+def mixed_config_all():
+    #make sure saved gains are very low before turning on
+
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             odrvs[leg][joint].axis0.controller.config.control_mode = 5
             odrvs[leg][joint].axis1.controller.config.control_mode = 5
             odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
             odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 
+
+def ramp_to_very_low_gains(debug=False):
+    if(debug):
+        ramp_up_gains_all_sagittal(.005, 0.005,debug=True)
+        ramp_up_gains_all_frontal(.005, 0.005,debug=True)
+    else:
+        ramp_up_gains_all_sagittal(.005, 0.005)
+        ramp_up_gains_all_frontal(.005, 0.005)
+
 def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False):
+    if odrvs[leg][joint] == None:
+        return
     start_s_kp = [odrvs[leg][joint].axis0.controller.config.pos_gain, odrvs[leg][joint].axis1.controller.config.pos_gain]
     start_s_kd = [odrvs[leg][joint].axis0.controller.config.vel_gain, odrvs[leg][joint].axis1.controller.config.vel_gain]
     start_f_kp = [odrvs[leg][joint].axis0.controller.config.pos_gain2, odrvs[leg][joint].axis1.controller.config.pos_gain2]
@@ -271,20 +301,20 @@ def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=F
         print("starting s_kd: " + str(start_s_kd))
         print("starting f_kp: " + str(start_f_kp))
         print("starting f_kd: " + str(start_f_kd))
-    print("ramping up gains to s_kp = " + str(s_kp) + ", s_kd = " + str(s_kd) + ", f_kp = " + str(f_kp)+ ", f_kd = " + str(f_kd)+ " on leg: " + str(leg) + ", joint: " + str(joint))
+    print("ramping gains to s_kp = " + str(s_kp) + ", s_kd = " + str(s_kd) + ", f_kp = " + str(f_kp)+ ", f_kd = " + str(f_kd)+ " on leg: " + str(leg) + ", joint: " + str(joint))
     t_start = time.time()
     t = time.time() - t_start
     while (t < rampSec):
         #sagittal
-        odrvs[leg][joint].axis0.controller.config.pos_gain = (1 - t/rampSec) * start_s_kp[leg][joint][0] + (t/rampSec) * s_kp
-        odrvs[leg][joint].axis1.controller.config.pos_gain = (1 - t/rampSec) * start_s_kp[leg][joint][1] + (t/rampSec) * s_kp
-        odrvs[leg][joint].axis0.controller.config.vel_gain = (1 - t/rampSec) * start_s_kd[leg][joint][0] + (t/rampSec) * s_kd
-        odrvs[leg][joint].axis1.controller.config.vel_gain = (1 - t/rampSec) * start_s_kd[leg][joint][1] + (t/rampSec) * s_kd
+        odrvs[leg][joint].axis0.controller.config.pos_gain = (1 - t/rampSec) * start_s_kp[0] + (t/rampSec) * s_kp
+        odrvs[leg][joint].axis1.controller.config.pos_gain = (1 - t/rampSec) * start_s_kp[1] + (t/rampSec) * s_kp
+        odrvs[leg][joint].axis0.controller.config.vel_gain = (1 - t/rampSec) * start_s_kd[0] + (t/rampSec) * s_kd
+        odrvs[leg][joint].axis1.controller.config.vel_gain = (1 - t/rampSec) * start_s_kd[1] + (t/rampSec) * s_kd
         #frontal
-        odrvs[leg][joint].axis0.controller.config.pos_gain2 = (1 - t/rampSec) * start_f_kp[leg][joint][0] + (t/rampSec) * f_kp
-        odrvs[leg][joint].axis1.controller.config.pos_gain2 = (1 - t/rampSec) * start_f_kp[leg][joint][1] + (t/rampSec) * f_kp
-        odrvs[leg][joint].axis0.controller.config.vel_gain2 = (1 - t/rampSec) * start_f_kd[leg][joint][0] + (t/rampSec) * f_kd
-        odrvs[leg][joint].axis1.controller.config.vel_gain2 = (1 - t/rampSec) * start_f_kd[leg][joint][1] + (t/rampSec) * f_kd
+        odrvs[leg][joint].axis0.controller.config.pos_gain2 = (1 - t/rampSec) * start_f_kp[0] + (t/rampSec) * f_kp
+        odrvs[leg][joint].axis1.controller.config.pos_gain2 = (1 - t/rampSec) * start_f_kp[1] + (t/rampSec) * f_kp
+        odrvs[leg][joint].axis0.controller.config.vel_gain2 = (1 - t/rampSec) * start_f_kd[0] + (t/rampSec) * f_kd
+        odrvs[leg][joint].axis1.controller.config.vel_gain2 = (1 - t/rampSec) * start_f_kd[1] + (t/rampSec) * f_kd
         #wait
         time.sleep(1/hz)
         t = time.time() - t_start
@@ -300,7 +330,7 @@ def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=F
             print(odrvs[leg][joint].axis0.controller.config.vel_gain2)
             print(odrvs[leg][joint].axis1.controller.config.vel_gain2)
 
-    print("done ramping up gains")
+    print("done ramping gains")
     if(debug):
         print("motor 0")
         print("s_kp = " + str(odrvs[leg][joint].axis0.controller.config.pos_gain) + ", s_kd = " + str(odrvs[leg][joint].axis0.controller.config.vel_gain))
@@ -310,13 +340,15 @@ def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=F
         print("s_kp = " + str(odrvs[leg][joint].axis1.controller.config.pos_gain2) + ", s_kd = " + str(odrvs[leg][joint].axis1.controller.config.vel_gain2))
 
 
-def ramp_up_gains_all_sagittal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
+def ramp_up_gains_all_sagittal(kp, kd, rampSec=5, hz=100, debug=False):
     kps = [[kp]*3]*2
     kds = [[kd]*3]*2
     start_kp = [[None]*3]*2
     start_kd = [[None]*3]*2
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             start_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain, odrvs[leg][joint].axis1.controller.config.pos_gain]
             start_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain, odrvs[leg][joint].axis1.controller.config.vel_gain]
 
@@ -324,12 +356,14 @@ def ramp_up_gains_all_sagittal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
         print("starting kp: " + str(start_kp))
         print("starting kd: " + str(start_kd))
 
-    print("ramping up gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
+    print("ramping gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
     t_start = time.time()
     t = time.time() - t_start
     while (t < rampSec):
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
                 odrvs[leg][joint].axis0.controller.config.pos_gain = (1 - t/rampSec) * start_kp[leg][joint][0] + (t/rampSec) * kps[leg][joint]
                 odrvs[leg][joint].axis1.controller.config.pos_gain = (1 - t/rampSec) * start_kp[leg][joint][1] + (t/rampSec) * kps[leg][joint]
                 odrvs[leg][joint].axis0.controller.config.vel_gain = (1 - t/rampSec) * start_kd[leg][joint][0] + (t/rampSec) * kds[leg][joint]
@@ -340,6 +374,8 @@ def ramp_up_gains_all_sagittal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
             cur_kd = [[None]*3]*2
             for leg in range(len(odrvs)):
                 for joint in range(len(odrvs[0])):
+                    if odrvs[leg][joint] == None:
+                        continue
                     cur_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain, odrvs[leg][joint].axis1.controller.config.pos_gain]
                     cur_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain, odrvs[leg][joint].axis1.controller.config.vel_gain]
             print("current kp: " + str(cur_kp))
@@ -347,37 +383,43 @@ def ramp_up_gains_all_sagittal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
 
         time.sleep(1/hz)
         t = time.time() - t_start
-    print("done ramping up gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
+    print("done ramping gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
 
     if(debug):
         end_kp = [[None]*3]*2
         end_kd = [[None]*3]*2
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
                 end_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain, odrvs[leg][joint].axis1.controller.config.pos_gain]
                 end_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain, odrvs[leg][joint].axis1.controller.config.vel_gain]
         print("final kp: " + str(end_kp))
         print("final kd: " + str(end_kd))
     return True
-def ramp_up_gains_all_frontal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
+def ramp_up_gains_all_frontal(kp, kd, rampSec=5, hz=100, debug=False):
     kps = [[kp]*3]*2
     kds = [[kd]*3]*2
     start_kp = [[None]*3]*2
     start_kd = [[None]*3]*2
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             start_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain2, odrvs[leg][joint].axis1.controller.config.pos_gain2]
             start_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain2, odrvs[leg][joint].axis1.controller.config.vel_gain2]
     if(debug):
         print("starting kp: " + str(start_kp))
         print("starting kd: " + str(start_kd))
 
-    print("ramping up gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
+    print("ramping gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
     t_start = time.time()
     t = time.time() - t_start
     while (t < rampSec):
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
                 odrvs[leg][joint].axis0.controller.config.pos_gain2 = (1 - t/rampSec) * start_kp[leg][joint][0] + (t/rampSec) * kps[leg][joint]
                 odrvs[leg][joint].axis1.controller.config.pos_gain2 = (1 - t/rampSec) * start_kp[leg][joint][1] + (t/rampSec) * kps[leg][joint]
                 odrvs[leg][joint].axis0.controller.config.vel_gain2 = (1 - t/rampSec) * start_kd[leg][joint][0] + (t/rampSec) * kds[leg][joint]
@@ -388,21 +430,104 @@ def ramp_up_gains_all_frontal(kp, kd, odrvs, rampSec=5, hz=100, debug=False):
             cur_kd = [[None]*3]*2
             for leg in range(len(odrvs)):
                 for joint in range(len(odrvs[0])):
+                    if odrvs[leg][joint] == None:
+                        continue
                     cur_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain2, odrvs[leg][joint].axis1.controller.config.pos_gain2]
                     cur_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain2, odrvs[leg][joint].axis1.controller.config.vel_gain2]
             print("current kp: " + str(cur_kp))
             print("current kd: " + str(cur_kd))
         time.sleep(1/hz)
         t = time.time() - t_start
-    print("done ramping up gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
+    print("done ramping gains to kp = " + str(kp) + ", kd = " + str(kd) + " on all")
 
     if(debug):
         end_kp = [[None]*3]*2
         end_kd = [[None]*3]*2
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
                 end_kp[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain2, odrvs[leg][joint].axis1.controller.config.pos_gain2]
                 end_kd[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain2, odrvs[leg][joint].axis1.controller.config.vel_gain2]
         print("final kp: " + str(end_kp))
         print("final kd: " + str(end_kd))
     return True
+
+
+
+def ramp_test_all(seconds):
+    counts = seconds * 100
+    results = [None] * (counts)
+
+    sagittal_pos = 0
+    frontal_pos = 0
+
+    for i in range(counts):
+        if i < (counts)/2:
+            sagittal_pos += 0.01
+        else:
+            sagittal_pos -= 0.01
+
+        prev_time = time.time()
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, sagittal_pos, frontal_pos)
+        new_time = time.time()
+
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                print(odrvs[leg][joint].axis0.encoder.pos_estimate)
+
+        results[i] = new_time - prev_time
+        time.sleep(0.01)
+
+    avg = 0
+    for i in range(counts):
+        avg += results[i]
+    avg = avg / (counts)
+    print(str(avg) + " ms")
+    print(str(1/avg) + " hz")
+
+def get_pos_all():
+    positions = [[None,None,None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            positions[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+    return positions
+
+def get_frontal_kp_gains_all():
+    gains = [[None,None,None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain2,odrvs[leg][joint].axis1.controller.config.pos_gain2]
+    return gains
+
+def get_frontal_kd_gains_all():
+    gains = [[None,None,None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain2,odrvs[leg][joint].axis1.controller.config.vel_gain2]
+    return gains
+
+def get_sagittal_kp_gains_all():
+    gains = [[None,None,None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain,odrvs[leg][joint].axis1.controller.config.pos_gain]
+    return gains
+def get_sagittal_kd_gains_all():
+    gains = [[None,None,None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain,odrvs[leg][joint].axis1.controller.config.vel_gain]
+    return gains

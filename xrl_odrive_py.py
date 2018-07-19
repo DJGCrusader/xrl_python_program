@@ -62,15 +62,20 @@ myLogger = dataLogger('data.txt')
 
 odrvs = [[None, None, None], [None, None, None]]
 # [[right hip, right knee, right ankle], [left hip, left knee, left ankle]]
-usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
+#0,0 = '367333693037'
+usb_serials = [[None, '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
 # Find a connected ODrive (this will block until you connect one)
-for leg in range(len(odrvs)):
-    for joint in range(len(odrvs[0])):
-        if usb_serials[leg][joint] == None:
-            continue
-        print("finding odrive: " + usb_serials[leg][joint] + "...")
-        odrvs[leg][joint] = odrive.find_any(serial_number = usb_serials[leg][joint])
-        print("found odrive! leg: " + str(leg) + ", joint: " + str(joint))
+
+def connect_all():
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            # if not connecting to one of the odrives, will just pass over it
+            # similar lines throughout program
+            if usb_serials[leg][joint] == None:
+                continue
+            print("finding odrive: " + usb_serials[leg][joint] + "...")
+            odrvs[leg][joint] = odrive.find_any(serial_number = usb_serials[leg][joint])
+            print("found odrive! leg: " + str(leg) + ", joint: " + str(joint))
 
 isRunning = True
 t = 0
@@ -102,6 +107,13 @@ def printErrorStates():
 def main():
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t
 
+    #connect to all odrives
+    connect_all()
+    xrlo.odrvs = odrvs
+
+    isRunning = True
+    t = 0
+
     ### LOGGER
     myLogger.appendData('\n--NewTrial--\n')
     titleStr = 't,'
@@ -123,12 +135,19 @@ def main():
     state = 'home'
     tStart = time.time()
 
+
     ###SET CONTROL MODES
-    xrlo.mixed_config_all(odrvs)
+    #ramp gains to close to zero first
+    xrlo.ramp_to_very_low_gains()
+    #set control modes
+    xrlo.mixed_config_all()
 
     ### SET THE MIXED GAINS
-    xrlo.ramp_up_gains_all_sagittal(1, 0.1, odrvs)
-    xrlo.ramp_up_gains_all_frontal(40, 0.5, odrvs)
+    xrlo.ramp_up_gains_all_sagittal(1, 0.1)
+    xrlo.ramp_up_gains_all_frontal(10,0.5)
+    #xrlo.ramp_up_gains_all_frontal(40, 0.5)
+
+
 
     commAll()
     print('-----------------Begin')
@@ -141,6 +160,7 @@ def main():
             rampTime = 10
             #thtDesired = zeroVec
             velDesired = zeroVec
+            #set thtDesired to standing position to start
             thtVals = xrlk.FrontalIK(0,53.7*in2m) #changed to rad
             for i in range(0,len(odrvs)):
                 for j in range(0,len(odrvs[0])):
@@ -155,66 +175,86 @@ def main():
             # if near home pose or if ramptime is complete, change to idle state.
             if(t>=rampTime):
                 #state = 'squatdown'
-                state = 'waitforsquat'
+                #state = 'waitforsquat'
                 #state = 'holdZero'
-                #state = 'configure'
-                #state = 'waitforspin'
+                state = 'configure'
                 print('-------------------------------State: ',state)
                 tStartSquat = t
         elif(state == 'holdZero'):
             state = 'holdZero'
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+        elif(state =='configure'):
+            while True:
+                i = input("Press q+Enter to quit or one of the following to configure:\ninitall\ninitone\nrampupgains\nprintgains\nprintpos\nprintdesiredpos\nramptest\nsquat...")
+                #if not i:
+                #    break
+                if i=='q':
+                    cleanQuit()
+                elif i=='rampupgains':
+                    #get parameters
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 100.0)
+                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 2.0)
+                    f_kp = get_float_num_from_user('frontal kp', 0.0, 100.0)
+                    f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
+                    #call the function!!
+                    xrlo.ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False)
+                elif i=='initall':
+                    ### NOT FULLY IMPLEMENTED YET
+                    print("not implemented yet")
+                    pass
+                    #xrlo.full_init(reset=False)
+                elif i=='initone':
+                    ### NOT FULLY IMPLEMENTED YET
+                    print("not implemented yet")
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    motor = get_int_num_from_user('motor', range(2))
+
+                    print("leg: " + str(leg) + ", joint: " + str(joint) + ", motor: " + str(motor))
+                    #xrlo.single_init(leg=0, joint=0, motor=0, reset=False)
+                elif i=='printgains':
+                    print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
+                    print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
+                    print("Frontal kp: " + str(xrlo.get_frontal_kp_gains_all()))
+                    print("Frontal kd: " + str(xrlo.get_frontal_kd_gains_all()))
+                elif i=='printpos':
+                    print("Positions: " + str(xrlo.get_pos_all()))
+                elif i=='printdesiredpos':
+                    print(thtDesired)
+                elif i=='ramptest':
+                    seconds = get_int_num_from_user('seconds', range(1000))
+                    xrlo.ramp_test_all(seconds)
+                    #TODO: not implemented yet
+                    pass
+                elif i=='squat':
+                    state = 'waitforsquat'
+                    break
         elif(state == 'waitforsquat'):
             while True:
-                i = input("Press Enter to continue or q+Enter to quit...")
+                i = input("Press Enter to continue, or exit, configure, or q+Enter to quit...")
                 if not i:
+                    break
+                if i=='configure':
+                    state = 'configure'
+                    break
+                if i=='exit':
+                    state = 'home'
                     break
                 if i=='q':
                     cleanQuit()
-            print("Squatting in 3...")
-            time.sleep(1)
-            print("             2...")
-            time.sleep(1)
-            print("             1...")
-            time.sleep(1)
-            state = 'squatdown'
-            print('-------------------------------State: ',state)
-            t = time.time() - tStart
-            tStartSquat = t
-        elif(state == 'waitforspin'):
-            while True:
-                i = input("Press Enter to continue or q+Enter to quit...")
-                if not i:
-                    break
-                if i=='q':
-                    cleanQuit()
-            print("Spinning in 3...")
-            time.sleep(1)
-            print("             2...")
-            time.sleep(1)
-            print("             1...")
-            time.sleep(1)
-            state = 'spintest'
-            print('-------------------------------State: ',state)
-            t = time.time() - tStart
-            tStartSpin = t
-        elif(state == 'configure'):
-            pass
-            ### mess with gains, mess with other stuff, initialize?
-        elif(state == 'slowspintozero'):
-
-            spinTime = 14
-            spinRad = 7
-            tSpin = time.time() - tStartSpin
-            if tSpin < spinTime/2:
-                sagittal_pos = spinRad * (2*t/spinTime)
-            else:
-                sagittal_pos = spinRad * (1-((t-spinTime/2)/spinTime))
-            for leg in range(0,len(odrvs)):
-                for joint in range(0,len(odrvs[0])):
-                    thtDesired[leg][joint][0] = sagittal_pos
-                    thtDesired[leg][joint][1] = sagittal_pos
-
+            if state != 'configure':
+                print("Squatting in 3...")
+                time.sleep(1)
+                print("             2...")
+                time.sleep(1)
+                print("             1...")
+                time.sleep(1)
+                state = 'squatdown'
+                print('-------------------------------State: ',state)
+                t = time.time() - tStart
+                tStartSquat = t
         elif(state == 'idle'): # wait for user command to perform a squat
             # if user hits enter?
             state = 'idle'
@@ -268,6 +308,8 @@ def commAll(state = '', t = 0):
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             odrv_comm(leg, joint)
     print('Act:',niceList(thtActual))
 
@@ -279,8 +321,10 @@ def cleanQuit():
     print('-----------------Quitting...')
     print('-----------------Ramping Gains Down...')
     print('Time of End: ',t)
-    for i in range(0,len(odrvs)):
-        for j in range(0,len(odrvs[0])):
+    for leg in range(0,len(odrvs)):
+        for joint in range(0,len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
             odrvs[leg][joint].axis0.requested_state = AXIS_STATE_IDLE
             odrvs[leg][joint].axis1.requested_state = AXIS_STATE_IDLE
 
@@ -441,6 +485,59 @@ def full_init(reset = False):
             odrvs[leg][joint].save_configuration()
 
     print("Done initializing!")
+
+
+
+def get_int_num_from_user(item_str, allowed_range):
+    #use keyboard input to get a number from within an allowed range from the user
+    result = None
+    while True:
+        #ask for input
+        i = input("Press q+Enter to quit, or enter " + item_str + "...")
+        #exit the function and cleanQuit
+        if i=='q':
+            cleanQuit()
+            return None
+        else: #otherwise if input exists try to parse it
+            try:
+                result = int(i)
+            except:
+                #if input is not a valid int
+                print("invalid input, please try again")
+                continue
+            #if input not in the range
+            if result not in allowed_range:
+                print("outside allowed range, please try again")
+                continue
+            #otherwise return it
+            else:
+                return result
+
+def get_float_num_from_user(item_str, lower_lim, upper_lim):
+    result = None
+    while True:
+        #ask for input
+        i = input("Press q+Enter to quit, or enter " + item_str + "...")
+        #exit the function and cleanQuit
+        if i=='q':
+            cleanQuit()
+            return None
+        else: #otherwise if input exists try to parse it
+            try:
+                result = float(i)
+            except:
+                #if input is not a valid int
+                print("invalid input, please try again")
+                continue
+            #if input not in the range
+            if result < lower_lim or result > upper_lim:
+                print("outside allowed range, please try again")
+                continue
+            #otherwise return it
+            else:
+                return result
+
+
 
 
 signal.signal(signal.SIGINT, cleanQuitInt)
