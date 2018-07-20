@@ -155,9 +155,6 @@ def full_init(reset = False):
             odrvs[leg][joint].save_configuration()
 
     print("Done initializing!")
-
-
-
 def single_init(leg, joint, motor, reset = False):
     if odrvs[leg][joint] == None:
         return
@@ -266,8 +263,6 @@ def single_init(leg, joint, motor, reset = False):
     odrvs[leg][joint].save_configuration()
 
     print("Done initializing!")
-
-
 def mixed_config_all():
     #make sure saved gains are very low before turning on
 
@@ -279,7 +274,11 @@ def mixed_config_all():
             odrvs[leg][joint].axis1.controller.config.control_mode = 5
             odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
             odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-
+def set_pll(leg, joint, pll_bandwidth, perm =False):
+    odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(pll_bandwidth)
+    odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(pll_bandwidth)
+    if(perm):
+        odrvs[leg][joint].save_configuration()
 
 def ramp_to_very_low_gains(debug=False):
     if(debug):
@@ -288,7 +287,6 @@ def ramp_to_very_low_gains(debug=False):
     else:
         ramp_up_gains_all_sagittal(.005, 0.005)
         ramp_up_gains_all_frontal(.005, 0.005)
-
 def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False):
     if odrvs[leg][joint] == None:
         return
@@ -338,8 +336,6 @@ def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=F
         print("motor 1")
         print("s_kp = " + str(odrvs[leg][joint].axis1.controller.config.pos_gain) + ", s_kd = " + str(odrvs[leg][joint].axis1.controller.config.vel_gain))
         print("s_kp = " + str(odrvs[leg][joint].axis1.controller.config.pos_gain2) + ", s_kd = " + str(odrvs[leg][joint].axis1.controller.config.vel_gain2))
-
-
 def ramp_up_gains_all_sagittal(kp, kd, rampSec=5, hz=100, debug=False):
     kps = [[kp]*3]*2
     kds = [[kd]*3]*2
@@ -453,40 +449,119 @@ def ramp_up_gains_all_frontal(kp, kd, rampSec=5, hz=100, debug=False):
         print("final kd: " + str(end_kd))
     return True
 
+def ramp_test_all(seconds, rads):
+    start_pos = [[None, None, None],[None,None,None]]
+    positions = [[None, None, None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            start_pos[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+    start_time = time.time()
+    ramp_time = seconds/2
+    print("beginning ramp test! total time: " + str(seconds) + ", total rads: " + str(rads))
 
-
-def ramp_test_all(seconds):
-    counts = seconds * 100
-    results = [None] * (counts)
-
-    sagittal_pos = 0
-    frontal_pos = 0
-
-    for i in range(counts):
-        if i < (counts)/2:
-            sagittal_pos += 0.01
-        else:
-            sagittal_pos -= 0.01
-
-        prev_time = time.time()
+    #spin up
+    t = time.time() - start_time
+    while (t < ramp_time):
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
-                odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, sagittal_pos, frontal_pos)
-        new_time = time.time()
-
+                if odrvs[leg][joint] == None:
+                    continue
+                positions[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+        print("Positions: " + str(positions))
+        #steadily increase up to rads from start_pos[0]
         for leg in range(len(odrvs)):
             for joint in range(len(odrvs[0])):
-                print(odrvs[leg][joint].axis0.encoder.pos_estimate)
-
-        results[i] = new_time - prev_time
+                if odrvs[leg][joint] == None:
+                    continue
+                odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/ramp_time)*start_pos[leg][joint][0]*CPR2RAD + (t/ramp_time)*rads, 0)
         time.sleep(0.01)
+        t = time.time() - start_time
 
-    avg = 0
-    for i in range(counts):
-        avg += results[i]
-    avg = avg / (counts)
-    print(str(avg) + " ms")
-    print(str(1/avg) + " hz")
+    #spin down
+    t = time.time() - start_time - ramp_time
+    while (t < ramp_time):
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
+                positions[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+        print("Positions: " + str(positions))
+        #steadily decrease down to start_pos[0] from rads
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
+                odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/ramp_time)*rads + (t/ramp_time)*start_pos[leg][joint][0]*CPR2RAD, 0)
+        time.sleep(0.01)
+        t = time.time() - start_time - ramp_time
+    print("completed ramp test!")
+def ramp_test(leg, joint, seconds, rads):
+    start_pos = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+    start_time = time.time()
+    ramp_time = seconds/2
+    print("beginning ramp test! total time: " + str(seconds) + ", leg: " + str(leg) + ", joint: " + str(joint))
+    #spin up
+    t = time.time() - start_time
+    while (t < ramp_time):
+        print(odrvs[leg][joint].axis0.encoder.pos_estimate)
+        #steadily increase up to rads from start_pos[0]
+        odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/ramp_time)*start_pos[0]*CPR2RAD + (t/ramp_time)*rads, 0)
+        time.sleep(0.01)
+        t = time.time() - start_time
+    #spin down
+    t = time.time() - start_time - ramp_time
+    while (t < ramp_time):
+        print(odrvs[leg][joint].axis0.encoder.pos_estimate)
+        #steadily decrease down to start_pos[0] from rads
+        odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/ramp_time)*rads + (t/ramp_time)*start_pos[0]*CPR2RAD, 0)
+        time.sleep(0.01)
+        t = time.time() - start_time - ramp_time
+    print("completed ramp test!")
+
+def spin_to_pos(leg, joint, seconds,rads):
+    start_pos = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+    start_time = time.time()
+    print("starting spin to zero, total time: " + str(seconds) + ", leg: " + str(leg) + ", joint: " + str(joint))
+    #spin up
+    t = time.time() - start_time
+    while (t < seconds):
+        print(odrvs[leg][joint].axis0.encoder.pos_estimate)
+        #steadily increase up to rads from start_pos[0]
+        odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/seconds)*start_pos[0]*CPR2RAD + (t/seconds)*rads, 0)
+        time.sleep(0.01)
+        t = time.time() - start_time
+    print("motor zeroed!")
+def spin_to_pos_all(seconds,rads):
+    start_pos = [[None, None, None],[None,None,None]]
+    positions = [[None, None, None],[None,None,None]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            start_pos[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+    start_time = time.time()
+    print("zeroing all motors, total time: " + str(seconds))
+
+    #spin up
+    t = time.time() - start_time
+    while (t < seconds):
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
+                positions[leg][joint] = [odrvs[leg][joint].axis0.encoder.pos_estimate, odrvs[leg][joint].axis1.encoder.pos_estimate]
+        print("Positions: " + str(positions))
+        #steadily increase up to rads from start_pos[0]
+        for leg in range(len(odrvs)):
+            for joint in range(len(odrvs[0])):
+                if odrvs[leg][joint] == None:
+                    continue
+                odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, (1-t/seconds)*start_pos[leg][joint][0]*CPR2RAD + (t/seconds)*rads, 0)
+        time.sleep(0.01)
+        t = time.time() - start_time
+    print("done zeroing motors!")
 
 def get_pos_all():
     positions = [[None,None,None],[None,None,None]]
@@ -505,7 +580,6 @@ def get_frontal_kp_gains_all():
                 continue
             gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.pos_gain2,odrvs[leg][joint].axis1.controller.config.pos_gain2]
     return gains
-
 def get_frontal_kd_gains_all():
     gains = [[None,None,None],[None,None,None]]
     for leg in range(len(odrvs)):
@@ -514,7 +588,6 @@ def get_frontal_kd_gains_all():
                 continue
             gains[leg][joint] = [odrvs[leg][joint].axis0.controller.config.vel_gain2,odrvs[leg][joint].axis1.controller.config.vel_gain2]
     return gains
-
 def get_sagittal_kp_gains_all():
     gains = [[None,None,None],[None,None,None]]
     for leg in range(len(odrvs)):

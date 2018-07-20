@@ -62,7 +62,8 @@ myLogger = dataLogger('data.txt')
 
 odrvs = [[None, None, None], [None, None, None]]
 # [[right hip, right knee, right ankle], [left hip, left knee, left ankle]]
-#0,0 = '367333693037'
+
+#usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
 usb_serials = [[None, '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
 # Find a connected ODrive (this will block until you connect one)
 
@@ -185,7 +186,7 @@ def main():
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
         elif(state =='configure'):
             while True:
-                i = input("Press q+Enter to quit or one of the following to configure:\ninitall\ninitone\nrampupgains\nprintgains\nprintpos\nprintdesiredpos\nramptest\nsquat...")
+                i = input("Press q+Enter to quit or one of the following to configure:\nsetpll\ninitall\ninitone\nrampupgains\nrampupgainsall\nposition\npositionall\nprintgains\nprintpos\nprintdesiredpos\nramptest\nramptestall\nsquat...")
                 #if not i:
                 #    break
                 if i=='q':
@@ -200,20 +201,41 @@ def main():
                     f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
                     #call the function!!
                     xrlo.ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False)
+                elif i=='rampupgainsall':
+                    #get parameters
+                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 100.0)
+                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 2.0)
+                    f_kp = get_float_num_from_user('frontal kp', 0.0, 100.0)
+                    f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
+                    #call the functions
+                    xrlo.ramp_up_gains_all_sagittal(s_kp, s_kd, rampSec=5, hz=100, debug=False)
+                    xrlo.ramp_up_gains_all_frontal(f_kp,f_kd, rampSec=5, hz=100, debug=False)
+                elif i=='setpll':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    pll_bandwidth = get_int_num_from_user('motor', range(10000))
+                    xrlo.set_pll(leg, joint, pll_bandwidth)
                 elif i=='initall':
-                    ### NOT FULLY IMPLEMENTED YET
-                    print("not implemented yet")
-                    pass
-                    #xrlo.full_init(reset=False)
+                    reset = get_bool_from_user('reset')
+                    xrlo.full_init(reset=reset)
                 elif i=='initone':
-                    ### NOT FULLY IMPLEMENTED YET
-                    print("not implemented yet")
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
                     motor = get_int_num_from_user('motor', range(2))
+                    reset = get_bool_from_user('reset')
 
                     print("leg: " + str(leg) + ", joint: " + str(joint) + ", motor: " + str(motor))
-                    #xrlo.single_init(leg=0, joint=0, motor=0, reset=False)
+                    xrlo.single_init(leg,joint,motor, reset=reset)
+                elif i=='position':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    seconds = get_int_num_from_user('seconds', range(1000))
+                    rads = get_float_num_from_user('rads', -100, 100)
+                    xrlo.spin_to_pos(leg, joint, seconds, rads)
+                elif i=='positionall':
+                    seconds = get_int_num_from_user('seconds', range(1000))
+                    rads = get_float_num_from_user('rads', -100, 100)
+                    xrlo.spin_to_pos_all(seconds, rads)
                 elif i=='printgains':
                     print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
                     print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
@@ -224,8 +246,15 @@ def main():
                 elif i=='printdesiredpos':
                     print(thtDesired)
                 elif i=='ramptest':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
                     seconds = get_int_num_from_user('seconds', range(1000))
-                    xrlo.ramp_test_all(seconds)
+                    rads = get_float_num_from_user('rads', -100, 100)
+                    xrlo.ramp_test(leg, joint, seconds, rads)
+                elif i=='ramptestall':
+                    seconds = get_int_num_from_user('seconds', range(1000))
+                    rads = get_float_num_from_user('rads', -100, 100)
+                    xrlo.ramp_test_all(seconds, rads)
                     #TODO: not implemented yet
                     pass
                 elif i=='squat':
@@ -363,6 +392,8 @@ def odrv_comm(leg, joint):
 
     ###Mixed Position Control
     #both, sagittal, frontal
+    ### DEBUGGING
+    print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired: " + str(thtDesired[leg][joint][0]) + ", thtActual: " + str(odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD))
     odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
 
     ###Mixed Pos&Vel Control?
@@ -374,8 +405,8 @@ def odrv_comm(leg, joint):
 
     ### Read Current States
     #position
-    thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate
-    thtActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pos_estimate
+    thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD
+    thtActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pos_estimate * CPR2RAD
     #velocity
     velActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pll_vel
     velActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pll_vel
@@ -536,6 +567,23 @@ def get_float_num_from_user(item_str, lower_lim, upper_lim):
             #otherwise return it
             else:
                 return result
+
+def get_bool_from_user(item_str):
+    while True:
+        #ask for input
+        i = input("Press q+Enter to quit, or enter t/f for bool " + item_str + "...")
+        #exit the function and cleanQuit
+        if i=='q':
+            cleanQuit()
+            return None
+        else: #otherwise if input exists try to parse it
+            if i =='t':
+                return True
+            if i =='f':
+                return False
+            else:
+                print("invalid input, please try again")
+                continue
 
 
 
