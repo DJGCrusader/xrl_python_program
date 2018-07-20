@@ -33,6 +33,8 @@ thtDesired = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 velDesired = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 kP = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 kD = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
+#kP = [[[10,10]] * 3] * 2
+#kD = [[[0.5,0.5]] * 3] * 2
 #kPd = [[[200,200],[200,200],[400,400]],[[200,200], [200,200], [400,400]]]
 kPd = [[[10,10]] * 3] * 2
 kDd = [[[0.5,0.5]] * 3] * 2
@@ -63,8 +65,8 @@ myLogger = dataLogger('data.txt')
 odrvs = [[None, None, None], [None, None, None]]
 # [[right hip, right knee, right ankle], [left hip, left knee, left ankle]]
 
-#usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
-usb_serials = [[None, '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
+usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
+#usb_serials = [[None, None, None], ['376136583137', '366E33683037', '366933683037']]
 #usb_serials = [[None, None, None], [None, None, None]]
 # Find a connected ODrive (this will block until you connect one)
 
@@ -135,7 +137,6 @@ def main():
 
     ###INITIAL STATE
     state = 'home'
-    tStart = time.time()
 
 
     ###SET CONTROL MODES
@@ -146,11 +147,12 @@ def main():
 
     ### SET THE MIXED GAINS
     xrlo.ramp_up_gains_all_sagittal(1, 0.1)
-    xrlo.ramp_up_gains_all_frontal(10,0.5)
+    xrlo.ramp_up_gains_all_frontal(1,0.1)
     #xrlo.ramp_up_gains_all_frontal(40, 0.5)
 
 
 
+    tStart = time.time()
     commAll()
     print('-----------------Begin')
     print('-------------------------------State: ',state)
@@ -159,7 +161,7 @@ def main():
         t = time.time() - tStart
         if(state == 'home'): # homing sequence
             # send desired home pose
-            rampTime = 10
+            rampTime = 5
             #thtDesired = zeroVec
             velDesired = zeroVec
             #set thtDesired to standing position to start
@@ -168,12 +170,14 @@ def main():
                 for j in range(0,len(odrvs[0])):
                     thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
                     thtDesired[i][j][1] = 0 #thtVals[i][j]+offsets[i][j][1]
+            ### this currently does nothing
             # ramp up kD and kP to high for some time
             for i in range(0,len(odrvs)):
                 for j in range(0,len(odrvs[0])):
                     for k in range(0,2):
                         kD[i][j][k] = (t/rampTime)*kDd[i][j][k]
                         kP[i][j][k] = (t/rampTime)*kPd[i][j][k]
+            print("Home")
             # if near home pose or if ramptime is complete, change to idle state.
             if(t>=rampTime):
                 #state = 'squatdown'
@@ -435,6 +439,10 @@ def odrv_comm(leg, joint):
     #odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0, velDesired[leg][joint][0], 0)
 
     ###Mixed Gains
+    ###this currently is not working
+    ###whole program is currently in a single set gain mode
+    #no ability to change the gains in real time
+    #works well for now but will probably need to be changed for final version
     #odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint][0], 0)
 
     ### Read Current States

@@ -538,7 +538,6 @@ def ramp_test(seconds, leg, joint):
     print(str(avg) + " ms")
     print(str(1/avg) + " hz")
 def ramp_test_all(seconds):
-    mixed_config_all()
     counts = seconds * 100
     results = [None] * (counts)
 
@@ -759,7 +758,7 @@ def set_plls_all(pll_bandwidth, perm=False):
             if (perm):
                 odrvs[leg][joint].save_configuration()
 
-def set_plls_joint(pll_bandwidth, leg, joint, perm =False):
+def set_pll(pll_bandwidth, leg, joint, perm =False):
     odrvs[leg][joint].axis0.encoder.set_pll_bandwidth(pll_bandwidth)
     odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(pll_bandwidth)
     if(perm):
