@@ -279,14 +279,27 @@ def set_pll(leg, joint, pll_bandwidth, perm =False):
     odrvs[leg][joint].axis1.encoder.set_pll_bandwidth(pll_bandwidth)
     if(perm):
         odrvs[leg][joint].save_configuration()
+def set_gear_ratio(gear_ratio, leg, joint, motor):
+    #gear ratio
+    if motor == 0:
+        odrvs[leg][joint].axis0.controller.config.gear_ratio = gear_ratio
+    elif motor == 1:
+        odrvs[leg][joint].axis1.controller.config.gear_ratio = gear_ratio
+
+def set_torque_constant(torque_constant, leg, joint, motor):
+    #gear ratio
+    if motor == 0:
+        odrvs[leg][joint].axis0.controller.config.torque_constant = torque_constant
+    elif motor == 1:
+        odrvs[leg][joint].axis1.controller.config.torque_constant = torque_constant
 
 def ramp_to_very_low_gains(debug=False):
     if(debug):
-        ramp_up_gains_all_sagittal(.005, 0.005,debug=True)
-        ramp_up_gains_all_frontal(.005, 0.005,debug=True)
+        ramp_up_gains_all_sagittal(.001, 0.001,debug=True)
+        ramp_up_gains_all_frontal(.001, 0.001,debug=True)
     else:
-        ramp_up_gains_all_sagittal(.005, 0.005)
-        ramp_up_gains_all_frontal(.005, 0.005)
+        ramp_up_gains_all_sagittal(.001, 0.001)
+        ramp_up_gains_all_frontal(.001, 0.001)
 def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False):
     if odrvs[leg][joint] == None:
         return

@@ -65,6 +65,7 @@ odrvs = [[None, None, None], [None, None, None]]
 
 #usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
 usb_serials = [[None, '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
+#usb_serials = [[None, None, None], [None, None, None]]
 # Find a connected ODrive (this will block until you connect one)
 
 def connect_all():
@@ -186,12 +187,21 @@ def main():
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
         elif(state =='configure'):
             while True:
-                i = input("Press q+Enter to quit or one of the following to configure:\nsetpll\ninitall\ninitone\nrampupgains\nrampupgainsall\nposition\npositionall\nprintgains\nprintpos\nprintdesiredpos\nramptest\nramptestall\nsquat...")
+                i = input("Press q+Enter to quit or one of the following to configure:\npll\ngear ratio\ntorque constant\nramp up gains\nramp up gains all\nprint all\nprint gains\nprint pos\nprint desired tht\ninits\ntests\nsquat...")
                 #if not i:
                 #    break
                 if i=='q':
                     cleanQuit()
-                elif i=='rampupgains':
+                elif i=='squat':
+                    state = 'waitforsquat'
+                    break
+                elif i=='tests':
+                    state = 'tests'
+                    break
+                elif i=='inits':
+                    state = 'inits'
+                    break
+                elif i=='ramp up gains':
                     #get parameters
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
@@ -201,7 +211,7 @@ def main():
                     f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
                     #call the function!!
                     xrlo.ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False)
-                elif i=='rampupgainsall':
+                elif i=='ramp up gains all':
                     #get parameters
                     s_kp = get_float_num_from_user('sagittal kp', 0.0, 100.0)
                     s_kd = get_float_num_from_user('sagittal kd', 0.0, 2.0)
@@ -210,56 +220,80 @@ def main():
                     #call the functions
                     xrlo.ramp_up_gains_all_sagittal(s_kp, s_kd, rampSec=5, hz=100, debug=False)
                     xrlo.ramp_up_gains_all_frontal(f_kp,f_kd, rampSec=5, hz=100, debug=False)
-                elif i=='setpll':
+                elif i=='pll':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
-                    pll_bandwidth = get_int_num_from_user('motor', range(10000))
+                    pll_bandwidth = get_int_num_from_user('pll', range(10000))
                     xrlo.set_pll(leg, joint, pll_bandwidth)
-                elif i=='initall':
-                    reset = get_bool_from_user('reset')
-                    xrlo.full_init(reset=reset)
-                elif i=='initone':
+                elif i=='gear ratio':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
                     motor = get_int_num_from_user('motor', range(2))
-                    reset = get_bool_from_user('reset')
-
-                    print("leg: " + str(leg) + ", joint: " + str(joint) + ", motor: " + str(motor))
-                    xrlo.single_init(leg,joint,motor, reset=reset)
+                    gear_ratio = get_float_num_from_user('gear_ratio', 0, 100)
+                    xrlo.set_gear_ratio(gear_ratio, leg, joint, motor)
+                elif i=='torque constant':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    motor = get_int_num_from_user('motor', range(2))
+                    torque_constant = get_float_num_from_user('torque_constant', 0, 100)
+                    xrlo.set_torque_constant(torque_constant, leg, joint, motor)
+                elif i=='print all':
+                    print(odrvs)
+                elif i=='print gains':
+                    print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
+                    print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
+                    print("Frontal kp: " + str(xrlo.get_frontal_kp_gains_all()))
+                    print("Frontal kd: " + str(xrlo.get_frontal_kd_gains_all()))
+                elif i=='print pos':
+                    print("Positions: " + str(xrlo.get_pos_all()))
+                elif i=='print desired tht':
+                    print(thtDesired)
+        elif(state =='tests'):
+            while True:
+                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\nposition\nposition all\nramptest\nramptest all...")
+                if not i:
+                    state = 'configure'
+                    break
+                if i=='q':
+                    cleanQuit()
                 elif i=='position':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
                     seconds = get_int_num_from_user('seconds', range(1000))
                     rads = get_float_num_from_user('rads', -100, 100)
                     xrlo.spin_to_pos(leg, joint, seconds, rads)
-                elif i=='positionall':
+                elif i=='position all':
                     seconds = get_int_num_from_user('seconds', range(1000))
                     rads = get_float_num_from_user('rads', -100, 100)
                     xrlo.spin_to_pos_all(seconds, rads)
-                elif i=='printgains':
-                    print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
-                    print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
-                    print("Frontal kp: " + str(xrlo.get_frontal_kp_gains_all()))
-                    print("Frontal kd: " + str(xrlo.get_frontal_kd_gains_all()))
-                elif i=='printpos':
-                    print("Positions: " + str(xrlo.get_pos_all()))
-                elif i=='printdesiredpos':
-                    print(thtDesired)
                 elif i=='ramptest':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
                     seconds = get_int_num_from_user('seconds', range(1000))
                     rads = get_float_num_from_user('rads', -100, 100)
                     xrlo.ramp_test(leg, joint, seconds, rads)
-                elif i=='ramptestall':
+                elif i=='ramptest all':
                     seconds = get_int_num_from_user('seconds', range(1000))
                     rads = get_float_num_from_user('rads', -100, 100)
                     xrlo.ramp_test_all(seconds, rads)
-                    #TODO: not implemented yet
-                    pass
-                elif i=='squat':
-                    state = 'waitforsquat'
+        elif(state =='inits'):
+            while True:
+                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\ninit all\ninit one...")
+                if not i:
+                    state = 'configure'
                     break
+                if i=='q':
+                    cleanQuit()
+                elif i=='init all':
+                    reset = get_bool_from_user('reset')
+                    xrlo.full_init(reset=reset)
+                elif i=='init one':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    motor = get_int_num_from_user('motor', range(2))
+                    reset = get_bool_from_user('reset')
+                    print("leg: " + str(leg) + ", joint: " + str(joint) + ", motor: " + str(motor))
+                    xrlo.single_init(leg,joint,motor, reset=reset)
         elif(state == 'waitforsquat'):
             while True:
                 i = input("Press Enter to continue, or exit, configure, or q+Enter to quit...")
