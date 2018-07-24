@@ -66,6 +66,9 @@ odrvs = [[None, None, None], [None, None, None]]
 # [[right hip, right knee, right ankle], [left hip, left knee, left ankle]]
 
 usb_serials = [['367333693037', '375F366E3137', '366933693037'], ['376136583137', '366E33683037', '366933683037']]
+#usb_serials = [[None, '375F366E3137', None], [None, None, None]]
+#usb_serials = [['367333693037', None, None], [None, None, None]]
+#usb_serials = [[None, None, None], ['376136583137', None, None]]
 #usb_serials = [[None, None, None], ['376136583137', '366E33683037', '366933683037']]
 #usb_serials = [[None, None, None], [None, None, None]]
 # Find a connected ODrive (this will block until you connect one)
@@ -80,6 +83,10 @@ def connect_all():
             print("finding odrive: " + usb_serials[leg][joint] + "...")
             odrvs[leg][joint] = odrive.find_any(serial_number = usb_serials[leg][joint])
             print("found odrive! leg: " + str(leg) + ", joint: " + str(joint))
+def connect_one(leg, joint):
+    print("finding odrive: " + usb_serials[leg][joint] + "...")
+    odrvs[leg][joint] = odrive.find_any(serial_number = usb_serials[leg][joint])
+    print("found odrive! leg: " + str(leg) + ", joint: " + str(joint))
 
 isRunning = True
 t = 0
@@ -95,6 +102,9 @@ odrvx.axisx.controller.config.gear_ratio = [ a different ]
 
 save config
 '''
+
+
+
 
 def printErrorStates():
     for leg in range(len(odrvs)):
@@ -141,13 +151,14 @@ def main():
 
     ###SET CONTROL MODES
     #ramp gains to close to zero first
-    xrlo.ramp_to_very_low_gains()
+    #xrlo.ramp_to_very_low_gains()
     #set control modes
     xrlo.mixed_config_all()
-
+    xrlo.closed_loop_state_all()
     ### SET THE MIXED GAINS
-    xrlo.ramp_up_gains_all_sagittal(1, 0.1)
-    xrlo.ramp_up_gains_all_frontal(1,0.1)
+    xrlo.ramp_up_gains_all_sagittal(10, 1.0) #use cpr2rad if NOT in mixed mode
+    xrlo.ramp_up_gains_all_frontal(10 ,1.0)
+    xrlo.set_gear_ratios()
     #xrlo.ramp_up_gains_all_frontal(40, 0.5)
 
 
@@ -170,6 +181,8 @@ def main():
                 for j in range(0,len(odrvs[0])):
                     thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
                     thtDesired[i][j][1] = 0 #thtVals[i][j]+offsets[i][j][1]
+
+            #TODO - actually ramp up to the standing gains automatically
             ### this currently does nothing
             # ramp up kD and kP to high for some time
             for i in range(0,len(odrvs)):
@@ -191,7 +204,7 @@ def main():
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
         elif(state =='configure'):
             while True:
-                i = input("Press q+Enter to quit or one of the following to configure:\npll\ngear ratio\ntorque constant\nramp up gains\nramp up gains all\nprint all\nprint gains\nprint pos\nprint desired tht\ninits\ntests\nsquat...")
+                i = input("Press q+Enter to quit or one of the following to configure:\npll\ngear ratio\ntorque constant\nmax gains all\nramp up gains\nramp up gains all\nreboot\nreboot all\nprint all\nprint errors\nprint gains\nprint pos\nprint desired tht\ninits\ntests\nsquat...")
                 #if not i:
                 #    break
                 if i=='q':
@@ -205,23 +218,26 @@ def main():
                 elif i=='inits':
                     state = 'inits'
                     break
+                elif i=='max gains all':
+                    xrlo.max_gains_all()
                 elif i=='ramp up gains':
                     #get parameters
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
-                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 100.0)
-                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 2.0)
-                    f_kp = get_float_num_from_user('frontal kp', 0.0, 100.0)
-                    f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
-                    #call the function!!
+                    #gear = get_bool_from_user('geared')
+                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 500.0)
+                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 20.0)
+                    f_kp = get_float_num_from_user('frontal kp', 0.0, 500.0)
+                    f_kd = get_float_num_from_user('frontal kd', 0.0, 20.0)
                     xrlo.ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False)
                 elif i=='ramp up gains all':
+                    #gear = get_bool_from_user('geared')
                     #get parameters
-                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 100.0)
-                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 2.0)
-                    f_kp = get_float_num_from_user('frontal kp', 0.0, 100.0)
-                    f_kd = get_float_num_from_user('frontal kd', 0.0, 2.0)
-                    #call the functions
+                    s_kp = get_float_num_from_user('sagittal kp', 0.0, 500.0)
+                    s_kd = get_float_num_from_user('sagittal kd', 0.0, 20.0)
+                    f_kp = get_float_num_from_user('frontal kp', 0.0, 500.0)
+                    f_kd = get_float_num_from_user('frontal kd', 0.0, 20.0)
+
                     xrlo.ramp_up_gains_all_sagittal(s_kp, s_kd, rampSec=5, hz=100, debug=False)
                     xrlo.ramp_up_gains_all_frontal(f_kp,f_kd, rampSec=5, hz=100, debug=False)
                 elif i=='pll':
@@ -230,11 +246,15 @@ def main():
                     pll_bandwidth = get_int_num_from_user('pll', range(10000))
                     xrlo.set_pll(leg, joint, pll_bandwidth)
                 elif i=='gear ratio':
-                    leg = get_int_num_from_user('leg', range(2))
-                    joint = get_int_num_from_user('joint', range(3))
-                    motor = get_int_num_from_user('motor', range(2))
-                    gear_ratio = get_float_num_from_user('gear_ratio', 0, 100)
-                    xrlo.set_gear_ratio(gear_ratio, leg, joint, motor)
+                    #leg = get_int_num_from_user('leg', range(2))
+                    #joint = get_int_num_from_user('joint', range(3))
+                    #motor = get_int_num_from_user('motor', range(2))
+                    hip_ratio = get_float_num_from_user('hip gear ratio', 0, 100)
+                    knee_ratio = get_float_num_from_user('knee gear ratio', 0, 100)
+                    ankle_ratio = get_float_num_from_user('ankle gear ratio', 0, 100)
+
+                    #gear_ratio = get_float_num_from_user('gear_ratio', 0, 100)
+                    xrlo.gear_ratios_all(hip_ratio, knee_ratio, ankle_ratio)
                 elif i=='torque constant':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
@@ -243,6 +263,8 @@ def main():
                     xrlo.set_torque_constant(torque_constant, leg, joint, motor)
                 elif i=='print all':
                     print(odrvs)
+                elif i=='print errors':
+                    xrlo.printErrorStates()
                 elif i=='print gains':
                     print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
                     print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
@@ -252,6 +274,16 @@ def main():
                     print("Positions: " + str(xrlo.get_pos_all()))
                 elif i=='print desired tht':
                     print(thtDesired)
+                elif i=='reboot':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    xrlo.reboot(leg, joint)
+                    connect_one(leg, joint)
+                    xrlo.odrvs = odrvs
+                elif i=='reboot all':
+                    xrlo.reboot_all()
+                    connect_all()
+                    xrlo.odrvs = odrvs
         elif(state =='tests'):
             while True:
                 i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\nposition\nposition all\nramptest\nramptest all...")
@@ -282,7 +314,7 @@ def main():
                     xrlo.ramp_test_all(seconds, rads)
         elif(state =='inits'):
             while True:
-                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\ninit all\ninit one...")
+                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\ninit all\ninit joint\ninit motor\nmake perm\nmake perm all...")
                 if not i:
                     state = 'configure'
                     break
@@ -291,13 +323,24 @@ def main():
                 elif i=='init all':
                     reset = get_bool_from_user('reset')
                     xrlo.full_init(reset=reset)
-                elif i=='init one':
+                elif i=='init joint':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    reset = get_bool_from_user('reset')
+                    xrlo.joint_init(leg, joint, reset=reset)
+                elif i=='init motor':
                     leg = get_int_num_from_user('leg', range(2))
                     joint = get_int_num_from_user('joint', range(3))
                     motor = get_int_num_from_user('motor', range(2))
                     reset = get_bool_from_user('reset')
                     print("leg: " + str(leg) + ", joint: " + str(joint) + ", motor: " + str(motor))
                     xrlo.single_init(leg,joint,motor, reset=reset)
+                elif i=='make perm':
+                    leg = get_int_num_from_user('leg', range(2))
+                    joint = get_int_num_from_user('joint', range(3))
+                    xrlo.make_perm(leg, joint)
+                elif i=='make perm all':
+                    xrlo.make_perm_all()
         elif(state == 'waitforsquat'):
             while True:
                 i = input("Press Enter to continue, or exit, configure, or q+Enter to quit...")
@@ -328,8 +371,9 @@ def main():
             # if user hits q
             #state = 'quit'
         elif(state == 'squatdown' ): # squat down over period of time
+            #TODO - enter time, height
             #IK, log all feedback over time
-            rampTime = 4
+            rampTime = 20
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
             yDes = (53.70-(((t - tStartSquat)/rampTime))*(53.70 - 33))*in2m
@@ -347,7 +391,7 @@ def main():
                 print('-------------------------------State: ',state)
         elif(state == 'standup'): # stand up over period of time
             #IK, log all feedback over time
-            rampTime = 4
+            rampTime = 20
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
             yDes = (53.70-(1-((t - tStartUp)/rampTime))*(53.70 - 33))*in2m
@@ -432,11 +476,11 @@ def odrv_comm(leg, joint):
     #both, sagittal, frontal
     ### DEBUGGING
     print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired: " + str(thtDesired[leg][joint][0]) + ", thtActual: " + str(odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD))
-    odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
+    #odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
 
     ###Mixed Pos&Vel Control?
     #both, sagittal, frontal, sagittal_vel, frontal_vel
-    #odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0, velDesired[leg][joint][0], 0)
+    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], 0, velDesired[leg][joint][0], 0)
 
     ###Mixed Gains
     ###this currently is not working
@@ -445,6 +489,8 @@ def odrv_comm(leg, joint):
     #works well for now but will probably need to be changed for final version
     #odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kP[leg][joint][0], 0, kD[leg][joint][0], 0)
 
+
+    '''
     ### Read Current States
     #position
     thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD
@@ -455,7 +501,7 @@ def odrv_comm(leg, joint):
     #current
     curCommand[leg][joint][0] = odrvs[leg][joint].axis0.motor.current_control.Iq_measured
     curCommand[leg][joint][1] = odrvs[leg][joint].axis1.motor.current_control.Iq_measured
-
+    '''
 def cleanQuitInt(signal, frame):
     cleanQuit()
 def niceList(theList):
@@ -633,14 +679,19 @@ def get_bool_from_user(item_str):
 signal.signal(signal.SIGINT, cleanQuitInt)
 
 
+
+
 main()
 # full_init(reset = True)
 # time.sleep(5)
 # printErrorStates()
-"""
 
+'''
 for leg in range(len(odrvs)):
     for joint in range(len(odrvs[0])):
+        if odrvs[leg][joint] == None:
+            continue
+        xrlo.mixed_config_all(perm=True)
         #Note that mixed impedance control units are in radians already!
         odrvs[leg][joint].axis0.controller.config.pos_gain = 10*CPR2RAD #10 with no gearing is ok. 100 was violent. Need 450 to 900 max
         odrvs[leg][joint].axis1.controller.config.pos_gain = 10*CPR2RAD
@@ -649,7 +700,7 @@ for leg in range(len(odrvs)):
         odrvs[leg][joint].axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
         odrvs[leg][joint].axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 
-"""
+'''
 
 
 #odrive.utils.start_liveplotter(lambda:[(odrvs[leg][joint].axis0.encoder.pos_estimate,odrvs[leg][joint].axis0.encoder.pos_estimate) for leg in range(len(odrvs)) for joint in range(len(odrvs[0]))])
