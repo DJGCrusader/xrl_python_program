@@ -29,6 +29,7 @@ in2m = in2mm/1000
 zeroVec = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 #offsets = [[[-8.59,-6.11],[-3.61,5.89],[4.03,0.21]],[[7.92,-0.77],[5.73,3.45],[-2.10,6.41]]]
 offsets = zeroVec
+home_thts = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 thtDesired = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 velDesired = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 kP = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
@@ -52,6 +53,9 @@ thtActual = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 velActual =   [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 curCommand = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 myLogger = dataLogger('data.txt')
+
+seconds = 0
+height = 0
 
 #BAUD = 921600
 #Robot facing 3DP:
@@ -119,7 +123,8 @@ def printErrorStates():
             print('leg',leg, ' joint',joint, ' axis1 debug:',odrvs[leg][joint].axis1.debug)
 
 def main():
-    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t, offsets
+    global seconds, height
 
     #connect to all odrives
     connect_all()
@@ -156,8 +161,8 @@ def main():
     xrlo.mixed_config_all()
     xrlo.closed_loop_state_all()
     ### SET THE MIXED GAINS
-    xrlo.ramp_up_gains_all_sagittal(10, 1.0) #use cpr2rad if NOT in mixed mode
-    xrlo.ramp_up_gains_all_frontal(10 ,1.0)
+    xrlo.ramp_up_gains_all_sagittal(0, 0.0) #use cpr2rad if NOT in mixed mode
+    xrlo.ramp_up_gains_all_frontal(0 ,0.0)
     xrlo.set_gear_ratios()
     #xrlo.ramp_up_gains_all_frontal(40, 0.5)
 
@@ -204,7 +209,7 @@ def main():
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
         elif(state =='configure'):
             while True:
-                i = input("Press q+Enter to quit or one of the following to configure:\npll\ngear ratio\ntorque constant\nmax gains all\nramp up gains\nramp up gains all\nreboot\nreboot all\nprint all\nprint errors\nprint gains\nprint pos\nprint desired tht\ninits\ntests\nsquat...")
+                i = input("Press q+Enter to quit or one of the following to configure:\npll\ngear ratio\ntorque constant\nread thts\nmax gains all\nramp up gains\nramp up gains all\nreboot\nreboot all\nprint all\nprint errors\nprint gains\nprint pos\nprint desired tht\ninits\ntests\nsquat...")
                 #if not i:
                 #    break
                 if i=='q':
@@ -245,6 +250,15 @@ def main():
                     joint = get_int_num_from_user('joint', range(3))
                     pll_bandwidth = get_int_num_from_user('pll', range(10000))
                     xrlo.set_pll(leg, joint, pll_bandwidth)
+                elif i=='read thts':
+                    print(xrlo.read_thts())
+                elif i=='set home':
+                    home_thts = xrlo.read_thts()
+                    offsets = home_thts
+                    print(offsets)
+                    print("To permanently save this home position, copy the above array and paste into xrl_odrive_py as offsets.")
+                elif i=='offsets':
+                    print(offsets)
                 elif i=='gear ratio':
                     #leg = get_int_num_from_user('leg', range(2))
                     #joint = get_int_num_from_user('joint', range(3))
@@ -265,6 +279,8 @@ def main():
                     print(odrvs)
                 elif i=='print errors':
                     xrlo.printErrorStates()
+                elif i=='print gearing':
+                    xrlo.print_controller()
                 elif i=='print gains':
                     print("Sagittal kp: " + str(xrlo.get_sagittal_kp_gains_all()))
                     print("Sagittal kd: " + str(xrlo.get_sagittal_kd_gains_all()))
@@ -355,6 +371,8 @@ def main():
                 if i=='q':
                     cleanQuit()
             if state != 'configure':
+                seconds = get_int_num_from_user('seconds', range(1000))
+                height = get_float_num_from_user('height to squat to (max 53.7, min 33) in inches', 32.75, 53.7)
                 print("Squatting in 3...")
                 time.sleep(1)
                 print("             2...")
@@ -373,10 +391,10 @@ def main():
         elif(state == 'squatdown' ): # squat down over period of time
             #TODO - enter time, height
             #IK, log all feedback over time
-            rampTime = 20
+            rampTime = seconds
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
-            yDes = (53.70-(((t - tStartSquat)/rampTime))*(53.70 - 33))*in2m
+            yDes = (53.70-(((t - tStartSquat)/rampTime))*(53.70 - height))*in2m
             thtVals = xrlk.FrontalIK(xDes,yDes)
             for i in range(0,len(odrvs)):
                 for j in range(0,len(odrvs[0])):
@@ -391,10 +409,10 @@ def main():
                 print('-------------------------------State: ',state)
         elif(state == 'standup'): # stand up over period of time
             #IK, log all feedback over time
-            rampTime = 20
+            rampTime = seconds
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
-            yDes = (53.70-(1-((t - tStartUp)/rampTime))*(53.70 - 33))*in2m
+            yDes = (53.70-(1-((t - tStartUp)/rampTime))*(53.70 - height))*in2m
             thtVals = xrlk.FrontalIK(xDes,yDes)
             #print(thtVals)
             for i in range(0,len(odrvs)):
@@ -416,7 +434,7 @@ def main():
         commAll(state, t)
 
 def commAll(state = '', t = 0):
-    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, offsets
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
             if odrvs[leg][joint] == None:
@@ -469,7 +487,7 @@ def cleanQuit():
     sys.exit(0)
 
 def odrv_comm(leg, joint):
-    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, offsets
     ### Send Commands
 
     ###Mixed Position Control

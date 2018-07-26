@@ -71,6 +71,26 @@ def set_gear_ratios_all(hip, knee, ankle):
                 continue
             odrvs[leg][joint].axis0.controller.config.gear_ratio = gear_ratios_all[joint]
             odrvs[leg][joint].axis1.controller.config.gear_ratio = gear_ratios_all[joint]
+def read_thts():
+    thts = [[[0,0],[0,0],[0,0]],[[0,0],[0,0],[0,0]]]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            thts[leg][joint][0]  = odrvs[leg][joint].axis0.controller.theta_s
+            thts[leg][joint][1]  = odrvs[leg][joint].axis0.controller.theta_f
+    return thts
+
+
+
+def print_controllers():
+    gear_ratios_all = [hip, knee, ankle]
+    for leg in range(len(odrvs)):
+        for joint in range(len(odrvs[0])):
+            if odrvs[leg][joint] == None:
+                continue
+            print(odrvs[leg][joint].axis0.controller)
+            print(odrvs[leg][joint].axis1.controller)
 
 def printErrorStates():
     for leg in range(len(odrvs)):
