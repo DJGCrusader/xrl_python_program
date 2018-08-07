@@ -26,7 +26,7 @@ h_person = 68*in2m #Height of person, in inches. Right now, I'm 5ft 8in
 #2.5% to 97.5: 64.5*in2m; 76.5*in2m;
 l_h2r_hip = 10*in2m #x-Distance from person's COM to robot's COM, 13.4375, 10.25
 h_stair = 0*in2m #Normally 8 inches, adds to leg length
-w_hip = 30.25*in2m #Design Parameter
+w_hip = 30.5*in2m #Design Parameter
 
 ##  Derived or Unimportant Parameters
 l_hip = 0#6*in2m #Distance from Robot+pack COM to Robot's hip in z direction
@@ -58,7 +58,7 @@ Tx_ext = 0 #[Nm]
 
 #   Simulation Parameters
 opts = [0, w_3, w_hip, 36*in2m, w_hip+2*l_1, 48*in2m]
-w_base = 27.5*in2m #Width of foot base.
+w_base = 27.25*in2m #Width of foot base.
 
 if (F_assist<=0):
     w_base = opts[2]
