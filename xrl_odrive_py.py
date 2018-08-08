@@ -11,6 +11,7 @@ Example usage of the ODrive python library to monitor and control ODrive devices
 import odrive
 from odrive.enums import *
 import time
+import datetime
 import math
 import fibre
 
@@ -28,8 +29,13 @@ in2m = in2mm/1000
 
 zeroVec = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 
+#wednesday
+#solving for jump problem
+
+#wednesday
+#offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
 #after lunch
-offsets = [[[-0.10940675437450409, 0.22007878124713898], [0.049144547432661057, -0.05353261157870293], [-0.025068538263440132, 0.041446980088949203]], [[0.0006983056082390249, -0.23880870640277863], [0.10245130211114883, 0.0029176988173276186], [-0.1488809436559677, 0.10424432158470154]]]
+#offsets = [[[-0.10940675437450409, 0.22007878124713898], [0.049144547432661057, -0.05353261157870293], [-0.025068538263440132, 0.041446980088949203]], [[0.0006983056082390249, -0.23880870640277863], [0.10245130211114883, 0.0029176988173276186], [-0.1488809436559677, 0.10424432158470154]]]
 #12:50 Tuesday - "extremely stable"
 #offsets = [[[-0.10957961529493332, 0.3974084258079529], [0.060073234140872955, -0.054044242948293686], [-0.030427640303969383, 0.04151458293199539]], [[-0.01245207991451025, -0.4045228958129883], [0.11808610707521439, 0.00739334337413311], [-0.14749814569950104, 0.10335318744182587]]]
 #start of day Tuesday - hanging, after lots of ankle adjustments
@@ -63,13 +69,32 @@ CPR2RAD = (2*math.pi/16384.0)
 thtActual = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 velActual =   [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 curCommand = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
-myLogger = dataLogger('data.txt')
+
+now = datetime.datetime.now()
+myLoggerName = str(now.strftime("%Y-%m-%d__%H:%M")) + ".txt"
+myLogger = dataLogger(myLoggerName)
 
 seconds = 0
 height = 0
+max_height = 53.7241049455
 wait_down = False
 dynamic_gains = False
 #BAUD = 921600
+
+squat_home = xrlk.FrontalIK(0,max_height*in2m) #((-0.031870902996822714, 3.480880635731154e-06, 0.03186742211618698), (-0.031870902996822714, 3.480880635731154e-06, 0.03186742211618698))
+squat_offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
+offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
+print("squat home")
+print(squat_home)
+print("original offsets")
+print(offsets)
+'''
+for i in range(0,len(offsets)):
+    for j in range(0,len(offsets[0])):
+        offsets[i][j][1] += squat_home[i][j]
+print("adjusted offsets")
+print(offsets)
+'''
 
 # [[right hip, right knee, right ankle], [left hip, left knee, left ankle]]
 odrvs = [[None, None, None], [None, None, None]]
@@ -108,7 +133,7 @@ def printErrorStates():
 
 def main():
     global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t, offsets
-    global seconds, height, wait_down
+    global seconds, height, max_height, wait_down
 
     #connect to all odrives
     connect_all()
@@ -162,7 +187,7 @@ def main():
             #thtVals = xrlk.FrontalIK(0,53.7*in2m) #changed to rad
             for i in range(0,len(odrvs)):
                 for j in range(0,len(odrvs[0])):
-                    thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
+                    thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
                     thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
 
             #TODO - actually ramp up to the standing gains automatically
@@ -244,7 +269,7 @@ def main():
 
         elif(state =='thts'):
             while True:
-                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\nread thts minus offsets\ndes thts minus offsets\nread thts\ndes thts\noffsets\nsend thts\nset home...")
+                i = input("Press Enter to return, q+Enter to quit, or one of the following to configure:\ngo home\nread thts minus offsets\ndes thts minus offsets\nread thts\ndes thts\noffsets\nsend thts\nset home...")
                 if not i:
                     state = 'configure'
                     break
@@ -272,20 +297,29 @@ def main():
                     print(xrlo.read_thts())
                 elif i=='offsets':
                     print(offsets)
+                elif i=='go home':
+                    for i in range(0,len(odrvs)):
+                        for j in range(0,len(odrvs[0])):
+                            thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
+                            thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
+                    commAll()
                 elif i=='send thts':
                     for i in range(0,len(odrvs)):
                         for j in range(0,len(odrvs[0])):
-                            thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
+                            thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
                             thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
                     commAll()
                 elif i=='set home':
                     home_thts = xrlo.read_thts()
+                    for i in range(0,len(odrvs)):
+                        for j in range(0,len(odrvs[0])):
+                            home_thts[i][j][0] -= squat_home[i][j]
                     offsets = home_thts
                     print(offsets)
                     print("To permanently save this home position, copy the above array and paste into xrl_odrive_py as offsets.")
                     for i in range(0,len(odrvs)):
                         for j in range(0,len(odrvs[0])):
-                            thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
+                            thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
                             thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
                     commAll()
 
@@ -398,7 +432,9 @@ def main():
 
             '''
             rampTime = seconds
+            dynamic_gains = True
 
+            #need some sort of input for the xrlk functions, like squat has yDes
             kPVals = home_kp #xrlk. nonexistent dynamic gains function!
             kDVals = home_kd #xrlk. nonexistent dynamic gains function!
             for i in range(0,len(odrvs)):
@@ -415,12 +451,17 @@ def main():
             myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
             #print('Des:',niceList(thtDesired))
             #if reach low position, stand back up
-            if(t - tStartSquat>= rampTime):
+            if(t - tStartSquat >= rampTime):
                 tStartUp = t
                 state = 'standup'
                 print('-------------------------------State: ',state)
             '''
+
         elif(state == 'waitforsquat'):
+            for i in range(0,len(odrvs)):
+                for j in range(0,len(odrvs[0])):
+                    thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
+                    thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
             while True:
                 i = input("Press Enter to continue, or exit, configure, or q+Enter to quit...")
                 if not i:
@@ -436,7 +477,7 @@ def main():
             if state != 'configure':
                 wait_down = get_bool_from_user('wait at bottom')
                 seconds = get_int_num_from_user('seconds', range(1000))
-                height = get_float_num_from_user('height to squat to (max 53.7, min 33) in inches', 32.75, 53.7)
+                height = get_float_num_from_user('height to squat to (max 53.7, min 33) in inches', 32.75, max_height)
                 print("Squatting in 3...")
                 time.sleep(1)
                 print("             2...")
@@ -447,6 +488,7 @@ def main():
                 print('-------------------------------State: ',state)
                 t = time.time() - tStart
                 tStartSquat = t
+
         elif(state == 'idle'): # wait for user command to perform a squat
             # if user hits enter?
             state = 'idle'
@@ -458,13 +500,14 @@ def main():
             rampTime = seconds
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
-            yDes = (53.70-(((t - tStartSquat)/rampTime))*(53.70 - height))*in2m
-            thtVals = xrlk.FrontalIK(xDes,yDes)
-            for i in range(0,len(odrvs)):
-                for j in range(0,len(odrvs[0])):
-                    thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
-                    thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
-            myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+            if(t-tStartSquat < rampTime):
+                yDes = (max_height-(((t - tStartSquat)/rampTime))*(max_height - height))*in2m
+                thtVals = xrlk.FrontalIK(xDes,yDes)
+                for i in range(0,len(odrvs)):
+                    for j in range(0,len(odrvs[0])):
+                        thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
+                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
+                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
             #print('Des:',niceList(thtDesired))
             #if reach low position, stand back up
             if(t - tStartSquat>= rampTime):
@@ -480,29 +523,36 @@ def main():
                     wait_down = False
                     tStartUp = time.time() - tStart
                     t = time.time() - tStart
-                    print("exiting wait")
+                    print("done waiting!")
                 if i=='q':
                     cleanQuit()
 
-            print("done waiting!")
             rampTime = seconds
-            print(rampTime)
-            print(tStartUp)
-            print(t)
+            #print(rampTime)
+            #print(tStartUp)
+            #print(t)
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
-            yDes = (53.70-(1-((t - tStartUp)/rampTime))*(53.70 - height))*in2m
-            print(yDes)
-            thtVals = xrlk.FrontalIK(xDes,yDes)
-            #print(thtVals)
-            for i in range(0,len(odrvs)):
-                for j in range(0,len(odrvs[0])):
-                    thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
-                    thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
-            myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+            if(t-tStartUp < rampTime):
+                yDes = (max_height-(1-((t - tStartUp)/rampTime))*(max_height - height))*in2m
+                print(yDes)
+                thtVals = xrlk.FrontalIK(xDes,yDes) # returns values that are then put in sagittal?
+                print("theta vals")
+                print(thtVals)
+                #print(thtVals)
+                for i in range(0,len(odrvs)):
+                    for j in range(0,len(odrvs[0])):
+                        thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
+                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
+                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
             #print('Des:',niceList(thtDesired))
             #If reach top, idle
             if(t - tStartUp>= rampTime):
+                for i in range(0,len(odrvs)):
+                    for j in range(0,len(odrvs[0])):
+                        thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
+                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
+                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
                 myLogger.writeOut()
                 #state = 'idle'
                 state = 'waitforsquat'
@@ -565,12 +615,12 @@ def odrv_comm(leg, joint):
     ###Mixed Position Control
     #both, sagittal, frontal
     ### DEBUGGING
-    print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired: " + str(thtDesired[leg][joint][0]) + ", thtActual: " + str(odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD))
+    print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired_s: " + str(thtDesired[leg][joint][0]) + ", thtActual_s: " + str(odrvs[leg][joint].axis0.controller.theta_s)+ ", thtDesired_f: " + str(thtDesired[leg][joint][1]) + ", thtActual_f: " + str(odrvs[leg][joint].axis0.controller.theta_f))
     #odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
 
     ###Mixed Pos&Vel Control?
     #both, sagittal, frontal, sagittal_vel, frontal_vel
-    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], thtDesired[leg][joint][1], velDesired[leg][joint][0], 0)
+    odrvs[leg][joint].axis0.controller.set_mixed_setpoint(True, thtDesired[leg][joint][0], thtDesired[leg][joint][1], 0, 0) #velDesired[leg][joint][0] as second to last term
     #last argument should eventually be velDesired[leg][joint][1]
 
     ###Mixed Gains
@@ -581,18 +631,20 @@ def odrv_comm(leg, joint):
         odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kPDesired[leg][joint][0], kPDesired[leg][joint][1], kDDesired[leg][joint][0], kDDesired[leg][joint][1])
 
 
-    '''
+
     ### Read Current States
     #position
-    thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD
-    thtActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pos_estimate * CPR2RAD
+    thtActual[leg][joint][0] = odrvs[leg][joint].axis0.controller.theta_s
+    thtActual[leg][joint][1] = odrvs[leg][joint].axis0.controller.theta_f
+    #thtActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pos_estimate * CPR2RAD
+    #thtActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pos_estimate * CPR2RAD
     #velocity
     velActual[leg][joint][0] = odrvs[leg][joint].axis0.encoder.pll_vel
     velActual[leg][joint][1] = odrvs[leg][joint].axis1.encoder.pll_vel
     #current
     curCommand[leg][joint][0] = odrvs[leg][joint].axis0.motor.current_control.Iq_measured
     curCommand[leg][joint][1] = odrvs[leg][joint].axis1.motor.current_control.Iq_measured
-    '''
+
 def cleanQuitInt(signal, frame):
     cleanQuit()
 def niceList(theList):
@@ -770,13 +822,7 @@ def get_bool_from_user(item_str):
 signal.signal(signal.SIGINT, cleanQuitInt)
 
 
-
-
 main()
-# full_init(reset = True)
-# time.sleep(5)
-# printErrorStates()
-
 '''
 for leg in range(len(odrvs)):
     for joint in range(len(odrvs[0])):
@@ -798,5 +844,3 @@ for leg in range(len(odrvs)):
 #start_liveplotter(lambda:[odrv0.axis0.encoder.pos_estimate, odrv0.axis1.encoder.pos_estimate,odrv1.axis0.encoder.pos_estimate, odrv1.axis1.encoder.pos_estimate,odrv2.axis0.encoder.pos_estimate, odrv2.axis1.encoder.pos_estimate,odrv3.axis0.encoder.pos_estimate, odrv3.axis1.encoder.pos_estimate,odrv4.axis0.encoder.pos_estimate, odrv4.axis1.encoder.pos_estimate,odrv5.axis0.encoder.pos_estimate, odrv5.axis1.encoder.pos_estimate])
 
 print("Done with program.")
-
-#main(

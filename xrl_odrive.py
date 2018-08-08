@@ -498,6 +498,13 @@ def ramp_to_very_low_gains(debug=False):
         ramp_up_gains_all_frontal(.001, 0.001)
 
 def max_gains_all(rampSec=5, hz=100, debug=False):
+    ramp_up_gains(0,0, 300, 2.5, 300, 2.5, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(1,0, 300, 2.5, 300, 2.5, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(0,1, 450, 3.7, 450, 3.7, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(1,1, 450, 3.7, 450, 3.7, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(0,2, 1000, 5, 2000, 5, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(1,2, 1000, 5, 2000, 5, rampSec=rampSec, hz=hz, debug=debug)
+    '''
     max_kp = [300, 450, 340]
     max_kd = [2.5, 3.7, 2.8]
     for leg in range(len(odrvs)):
@@ -506,6 +513,7 @@ def max_gains_all(rampSec=5, hz=100, debug=False):
                 continue
             #print("leg: " + str(leg) + ", joint: " + str(joint))
             ramp_up_gains(leg, joint, max_kp[joint], max_kd[joint], max_kp[joint], max_kd[joint], rampSec=rampSec, hz=hz, debug=debug)
+    '''
 
 def ramp_up_gains(leg, joint, s_kp, s_kd, f_kp, f_kd, rampSec=5, hz=100, debug=False):
     if odrvs[leg][joint] == None:
