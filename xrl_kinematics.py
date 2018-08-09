@@ -29,7 +29,7 @@ h_stair = 0*in2m #Normally 8 inches, adds to leg length
 w_hip = 30.5*in2m #Design Parameter
 
 ##  Derived or Unimportant Parameters
-l_hip = 0#6*in2m #Distance from Robot+pack COM to Robot's hip in z direction
+l_hip = 6*in2m #Distance from Robot+pack COM to Robot's hip in z direction
 l_thigh = (20/68)*h_person #Height from ground to person's hip during crawling
 h_crawl = l_thigh+l_h2r_hip
 h_hip = h_person*0.75
@@ -74,6 +74,28 @@ tht_r = 0
 x_e = y_r
 y_e = z_r
 tht_x = tht_r
+
+# Note that q1,2,3 are hip, knee, and ankle respectively. 
+# q = [0, 0, 0] is standing straight up
+# Returns 3x3 Jacobian for the planar Sagittal View
+def JacSag(q =  np.array([0, 0, 0]), l_y = l_hip, l_x = 0):
+    return np.array(\
+        [[-l_x*cos(q[0]+q[1]+q[2])-l_y*sin(q[0]+q[1]+q[2]+pi/2-pi),\
+            -l_x*cos(q[0]+q[1]+q[2])-l_y*sin(q[0]+q[1]+q[2]+pi/2-pi) - l_1*sin(q[2]+q[1]+pi/2),\
+                -l_x*cos(q[0]+q[1]+q[2])-l_y*sin(q[0]+q[1]+q[2]+pi/2-pi) - l_1*sin(q[2]+q[1]+pi/2) - l_2*sin(q[2]+pi/2)],\
+        [l_x*sin(q[0]+q[1]+q[2])+l_y*cos(q[0]+q[1]+q[2]+pi/2-pi),\
+            l_x*sin(q[0]+q[1]+q[2])+l_y*cos(q[0]+q[1]+q[2]+pi/2-pi) + l_1*cos(q[2]+q[1]+pi/2),\
+                l_x*sin(q[0]+q[1]+q[2])+l_y*cos(q[0]+q[1]+q[2]+pi/2-pi) + l_1*cos(q[2]+q[1]+pi/2) + l_2*cos(q[2]+pi/2)],\
+        [1, 1, 1]])
+
+# Robot Facing us, the Robot's Left (On our Right) leg values are as follows when squatting down
+# Ankle: negative, Knee: Positive, Ankle: negative
+# q = [rightHip, rightKnee, rightAnkle, leftHip, leftKnee, leftAnkle]
+# Returns 3x6 Jacobian for the planar Frontal View
+def JacFront(q = np.array([0, 0, 0, 0, 0, 0])):
+    Js1 = JacSag(q[0:3],0, w_hip/2)
+    Js2 = JacSag(q[3:6],0, w_hip/2)
+    return np.concatenate((Js1,Js2), axis=1)/2
 
 def FrontalIK(x,y,tht_x = 0):
     tht3L = 0
