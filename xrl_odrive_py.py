@@ -230,7 +230,8 @@ def main():
                 elif i=='thts':
                     state = 'thts'
                     break
-                elif i=='dynamic gains':
+                elif i=='dynamic gains tests':
+                    dynamic_gains = get_bool_from_user('activate dynamic gains')
                     state = 'dynamic gains'
                     break
 
@@ -430,33 +431,114 @@ def main():
             print("RETURNING TO CONFIGURE")
             state = 'configure'
 
-            '''
+            while True:
+                i = input("Press Enter to go back, exit, q+Enter to quit, or select:\nsampleTest...")
+                if not i:
+                    dynamic_gains = get_bool_from_user('keep dynamic gains activated?')
+                    state = 'configure'
+                    break
+                elif i=='exit':
+                    state = 'home'
+                    break
+                elif i=='q':
+                    cleanQuit()
+                elif i=='sampleTest':
+                    seconds = get_float_num_from_user('seconds', 0, 100000)
+                    tStartSquat = t-tStart
+                    state = 'sampleDynGainsTest'
+
+        elif(state == 'sampleDynGainsTest'):
             rampTime = seconds
-            dynamic_gains = True
-
             #need some sort of input for the xrlk functions, like squat has yDes
-            kPVals = home_kp #xrlk. nonexistent dynamic gains function!
-            kDVals = home_kd #xrlk. nonexistent dynamic gains function!
-            for i in range(0,len(odrvs)):
-                for j in range(0,len(odrvs[0])):
-                    #sagittal kp
-                    kPDesired[i][j][0] = kPVals[leg][joint][0]
-                    #sagittal kd
-                    kDDesired[i][j][0] = kDVals[leg][joint][0]
-                    #frontal kp
-                    kPDesired[i][j][1] = kPVals[leg][joint][1]
-                    #frontal kd
-                    kDDesired[i][j][1] = kDVals[leg][joint][1]
-
-            myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
-            #print('Des:',niceList(thtDesired))
+            kPVals = home_kp #xrlk.[unwritten dynamic gains function]
+            kDVals = home_kd #xrlk.[unwritten dynamic gains function]
+            update_des_gains(kPVals, kDVals)
             #if reach low position, stand back up
             if(t - tStartSquat >= rampTime):
                 tStartUp = t
-                state = 'standup'
+                state = 'sampleDynGainsTestReverse'
                 print('-------------------------------State: ',state)
-            '''
 
+        elif(state == 'sampleDynGainsTestReverse'): # stand up over period of time
+            #IK, log all feedback over time
+            while wait_down:
+                print("waiting")
+                i = input("Press Enter to continue, or q+Enter to quit...")
+                if not i:
+                    wait_down = False
+                    tStartUp = time.time() - tStart
+                    t = time.time() - tStart
+                    print("done waiting!")
+                if i=='q':
+                    cleanQuit()
+
+            rampTime = seconds
+            xDes = 0
+            #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
+            if(t-tStartUp < rampTime):
+                rampTime = seconds
+                #need some sort of input for the xrlk functions, like squat has yDes
+                kPVals = home_kp #xrlk.[unwritten dynamic gains function]
+                kDVals = home_kd #xrlk.[unwritten dynamic gains function]
+                update_des_gains(kPVals, kDVals)
+            if(t - tStartUp>= rampTime):
+                kPVals = home_kp #this should always be home
+                kDVals = home_kd
+                update_des_gains(kPVals, kDVals)
+                myLogger.writeOut()
+                state = 'dynamic gains'
+                print('-------------------------------State: ',state)
+
+        elif(state == 'comboTest'):
+            rampTime = seconds
+            #need some sort of input for the xrlk functions, like squat has yDes
+            kPVals = home_kp #xrlk.[unwritten dynamic gains function]
+            kDVals = home_kd #xrlk.[unwritten dynamic gains function]
+            yDes = (max_height-(((t - tStartSquat)/rampTime))*(max_height - height))*in2m
+            thtVals = xrlk.FrontalIK(xDes,yDes)
+            update_des_gains_and_pos(kPVals, kDVals, thtVals)
+            #if reach low position, stand back up
+            if(t - tStartSquat >= rampTime):
+                tStartUp = t
+                state = 'comboTestReverse'
+                print('-------------------------------State: ',state)
+
+        elif(state == 'comboTestReverse'): # stand up over period of time
+            #IK, log all feedback over time
+            while wait_down:
+                print("waiting")
+                i = input("Press Enter to continue, or q+Enter to quit...")
+                if not i:
+                    wait_down = False
+                    tStartUp = time.time() - tStart
+                    t = time.time() - tStart
+                    print("done waiting!")
+                if i=='q':
+                    cleanQuit()
+
+            rampTime = seconds
+            #need some sort of input for the xrlk functions, like squat has yDes
+            kPVals = home_kp #xrlk.[unwritten dynamic gains function]
+            kDVals = home_kd #xrlk.[unwritten dynamic gains function]
+            yDes = (max_height-(((t - tStartSquat)/rampTime))*(max_height - height))*in2m
+            thtVals = xrlk.FrontalIK(xDes,yDes)
+
+            update_des_gains_and_pos(kPVals, kDVals, thtVals)
+
+            if(t - tStartUp>= rampTime):
+                kPVals = home_kp #this should always be home
+                kDVals = home_kd
+                yDes = (max_height-(((t - tStartSquat)/rampTime))*(max_height - height))*in2m
+                thtVals = xrlk.FrontalIK(xDes,yDes)
+
+                update_des_gains_and_pos(kPVals, kDVals, thtVals)
+
+                myLogger.writeOut()
+                #state = 'idle'
+                state = 'dynamic gains'
+                #state = 'squatdown'
+                #tStartSquat = t
+                print('-------------------------------State: ',state)
         elif(state == 'waitforsquat'):
             for i in range(0,len(odrvs)):
                 for j in range(0,len(odrvs[0])):
@@ -495,20 +577,13 @@ def main():
             # if user hits q
             #state = 'quit'
         elif(state == 'squatdown' ): # squat down over period of time
-            #TODO - enter time, height
-            #IK, log all feedback over time
             rampTime = seconds
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
             if(t-tStartSquat < rampTime):
                 yDes = (max_height-(((t - tStartSquat)/rampTime))*(max_height - height))*in2m
                 thtVals = xrlk.FrontalIK(xDes,yDes)
-                for i in range(0,len(odrvs)):
-                    for j in range(0,len(odrvs[0])):
-                        thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
-                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
-                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
-            #print('Des:',niceList(thtDesired))
+                update_des_pos(thtVals)
             #if reach low position, stand back up
             if(t - tStartSquat>= rampTime):
                 tStartUp = t
@@ -528,36 +603,21 @@ def main():
                     cleanQuit()
 
             rampTime = seconds
-            #print(rampTime)
-            #print(tStartUp)
-            #print(t)
             xDes = 0
             #For real robot: No lower than 32.75, midpoint is 42, max is 53.70
             if(t-tStartUp < rampTime):
                 yDes = (max_height-(1-((t - tStartUp)/rampTime))*(max_height - height))*in2m
-                print(yDes)
-                thtVals = xrlk.FrontalIK(xDes,yDes) # returns values that are then put in sagittal?
-                print("theta vals")
-                print(thtVals)
+                #print(yDes)
+                thtVals = xrlk.FrontalIK(xDes,yDes) #because of current robot orientation, FrontalIK returns values that are supplied to SAGITTAL motors
+                #print("theta vals")
                 #print(thtVals)
-                for i in range(0,len(odrvs)):
-                    for j in range(0,len(odrvs[0])):
-                        thtDesired[i][j][0] = thtVals[i][j]+offsets[i][j][0]
-                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
-                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
-            #print('Des:',niceList(thtDesired))
+                update_des_pos(thtVals)
+
             #If reach top, idle
             if(t - tStartUp>= rampTime):
-                for i in range(0,len(odrvs)):
-                    for j in range(0,len(odrvs[0])):
-                        thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
-                        thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
-                myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+                update_des_pos(thtVals)
                 myLogger.writeOut()
-                #state = 'idle'
                 state = 'waitforsquat'
-                #state = 'squatdown'
-                #tStartSquat = t
                 print('-------------------------------State: ',state)
         elif(state == 'quit'): # quit
             cleanQuit()
@@ -747,6 +807,58 @@ def full_init(reset = False):
             odrvs[leg][joint].save_configuration()
 
     print("Done initializing!")
+
+
+
+###sets kP and kD to kPVals and kDVals, sets thtDesired to thtSagVals and thtFrontVals, accounts for offsets, logs
+def update_des_gains_and_pos(kPVals, kDVals, thtSagVals, thtFrontVals=0):
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t, offsets
+    global seconds, height, max_height, wait_down
+    for i in range(0,len(odrvs)):
+        for j in range(0,len(odrvs[0])):
+            #sagittal kp
+            kPDesired[i][j][0] = kPVals[leg][joint][0]
+            #sagittal kd
+            kDDesired[i][j][0] = kDVals[leg][joint][0]
+            #frontal kp
+            kPDesired[i][j][1] = kPVals[leg][joint][1]
+            #frontal kd
+            kDDesired[i][j][1] = kDVals[leg][joint][1]
+            #set the position
+            #sagittal tht
+            thtDesired[i][j][0] = thtSagVals[i][j]+offsets[i][j][0]
+            #frontal tht
+            thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtFrontVals[i][j]
+    myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+
+###sets thtDesired to thtSagVals, thtFrontVals, accounting for offsets, logs
+def update_des_pos(thtSagVals, thtFrontVals=0):
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t, offsets
+    global seconds, height, max_height, wait_down
+    for i in range(0,len(odrvs)):
+        for j in range(0,len(odrvs[0])):
+            #set the position
+            #sagittal tht
+            thtDesired[i][j][0] = thtSagVals[i][j]+offsets[i][j][0]
+            #frontal tht
+            thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtFrontVals[i][j]
+    myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
+
+###sets kP and kD to kPVals and kDVals, accounts for offsets, logs
+def update_des_gains(kPVals, kDVals):
+    global thtDesired, velDesired, kP, kD, thtActual, velActual, curCommand, t, offsets
+    global seconds, height, max_height, wait_down
+    for i in range(0,len(odrvs)):
+        for j in range(0,len(odrvs[0])):
+            #sagittal kp
+            kPDesired[i][j][0] = kPVals[leg][joint][0]
+            #sagittal kd
+            kDDesired[i][j][0] = kDVals[leg][joint][0]
+            #frontal kp
+            kPDesired[i][j][1] = kPVals[leg][joint][1]
+            #frontal kd
+            kDDesired[i][j][1] = kDVals[leg][joint][1]
+    myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
 
 
 
