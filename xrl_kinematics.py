@@ -29,7 +29,7 @@ h_stair = 0*in2m #Normally 8 inches, adds to leg length
 w_hip = 30.5*in2m #Design Parameter
 
 ##  Derived or Unimportant Parameters
-l_hip = 6*in2m #Distance from Robot+pack COM to Robot's hip in z direction
+l_hip = 0#6*in2m #Distance from Robot+pack COM to Robot's hip in z direction ----------------------------IMPORTANT, CHANGES THE HEIGHT! EEEEEEEEP
 l_thigh = (20/68)*h_person #Height from ground to person's hip during crawling
 h_crawl = l_thigh+l_h2r_hip
 h_hip = h_person*0.75

@@ -71,7 +71,7 @@ def set_gear_ratios_all(hip, knee, ankle):
                 continue
             odrvs[leg][joint].axis0.controller.config.gear_ratio = gear_ratios_all[joint]
             odrvs[leg][joint].axis1.controller.config.gear_ratio = gear_ratios_all[joint]
-def read_thts():
+def read_thts(): #Read RAW thetas
     thts = [[[0,0],[0,0],[0,0]],[[0,0],[0,0],[0,0]]]
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
@@ -502,7 +502,7 @@ def max_gains_all(rampSec=5, hz=100, debug=False):
     ramp_up_gains(1,0, 300, 2.5, 300, 2.5, rampSec=rampSec, hz=hz, debug=debug)
     ramp_up_gains(0,1, 450, 3.7, 450, 3.7, rampSec=rampSec, hz=hz, debug=debug)
     ramp_up_gains(1,1, 450, 3.7, 450, 3.7, rampSec=rampSec, hz=hz, debug=debug)
-    ramp_up_gains(0,2, 1000, 5, 2000, 5, rampSec=rampSec, hz=hz, debug=debug)
+    ramp_up_gains(0,2, 1000, 5, 2000, 5, rampSec=rampSec, hz=hz, debug=debug) #2000
     ramp_up_gains(1,2, 1000, 5, 2000, 5, rampSec=rampSec, hz=hz, debug=debug)
     '''
     max_kp = [300, 450, 340]

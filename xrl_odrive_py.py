@@ -64,14 +64,14 @@ kDDesired = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 
 gear_ratios = [32.0/15.0, 48.0/15.0, 36.0/15.0]
 
-CPR2RAD = (2*math.pi/16384.0)
+CPR2RAD = (2*math.pi/16384.0)   
 
 thtActual = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 velActual =   [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 curCommand = [[[0,0],[0,0],[0,0]],[[0,0], [0,0], [0,0]]]
 
 now = datetime.datetime.now()
-myLoggerName = str(now.strftime("%Y-%m-%d__%H:%M")) + ".txt"
+myLoggerName = './trials/'+str(now.strftime("%Y-%m-%d__%H:%M")) + ".txt"
 myLogger = dataLogger(myLoggerName)
 
 seconds = 0
@@ -82,8 +82,18 @@ dynamic_gains = False
 #BAUD = 921600
 
 squat_home = xrlk.FrontalIK(0,max_height*in2m) #((-0.031870902996822714, 3.480880635731154e-06, 0.03186742211618698), (-0.031870902996822714, 3.480880635731154e-06, 0.03186742211618698))
-squat_offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
-offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
+#squat_offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]], [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
+#offsets = [[[-0.02088712342083454, 0.12046219408512115], [-0.05574047565460205, -0.05557453632354736], [-0.004209842998534441, 0.03389998897910118]],\
+#           [[0.038227371871471405, -0.1437968760728836], [0.0021709883585572243, 0.011283609084784985], [-0.12486334145069122, 0.11613021045923233]]]
+# offsets = [[[-0.09350022532387126, 0.161392942070961], [0.0746121540971818, -0.08357614278793335], [-0.0583003218744067, 0.026740185916423798]],\
+#              [[-0.0312537015263592, -0.16538920998573303], [0.1561970621653619, -0.0873834416270256], [-0.19654297078886307, 0.10831896215677261]]]
+offsets = [[[-0.09350022532387126, 0.161392942070961], [0.10608456882916117, -0.10244669020175934], [-0.08629424492755211, 0.016390731558203697]], \
+            [[-0.0312537015263592, -0.16538920998573303], [0.14818145933828974, -0.10132662206888199], [-0.16220662738123215, 0.1191231906414032]]]
+
+
+
+squat_offsets = offsets
+
 print("squat home")
 print(squat_home)
 print("original offsets")
@@ -140,7 +150,7 @@ def main():
     xrlo.odrvs = odrvs
 
     ### LOGGER
-    myLogger.appendData('\n--NewTrial--\n')
+    #myLogger.appendData('\n--NewTrial--\n') #removing this makes it easier to import into MATLAB
     titleStr = 't,'
     for i in range(0,len(odrvs)):
         for j in range(0,len(odrvs[0])):
@@ -164,8 +174,9 @@ def main():
     xrlo.closed_loop_state_all()
 
     ### SET THE MIXED GAINS
-    xrlo.ramp_up_gains_all_sagittal(0, 0.0) #use cpr2rad if NOT in mixed mode
-    xrlo.ramp_up_gains_all_frontal(0 ,0.0)
+    ## 2x CHANGE MADE BY DGONZ:
+    #xrlo.ramp_up_gains_all_sagittal(0, 0.0) #use cpr2rad if NOT in mixed mode
+    #xrlo.ramp_up_gains_all_frontal(0 ,0.0)
     xrlo.set_gear_ratios()
 
     isRunning = True
@@ -189,15 +200,10 @@ def main():
                 for j in range(0,len(odrvs[0])):
                     thtDesired[i][j][0] = squat_home[i][j]+offsets[i][j][0]
                     thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j]
+            #commAll()
 
-            #TODO - actually ramp up to the standing gains automatically
-            ### this currently does nothing
             # ramp up kD and kP to high for some time
-            for i in range(0,len(odrvs)):
-                for j in range(0,len(odrvs[0])):
-                    for k in range(0,2):
-                        kDDesired[i][j][k] = (t/rampTime)*home_kd[i][j][k]
-                        kPDesired[i][j][k] = (t/rampTime)*home_kp[i][j][k]
+            #xrlo.max_gains_all()
             print("Home")
             # if near home pose or if ramptime is complete, change to idle state.
             if(t>=rampTime):
@@ -291,7 +297,7 @@ def main():
                             pos_minus_offsets[i][j][0] = thtDesired[i][j][0] - offsets[i][j][0]
                             pos_minus_offsets[i][j][1] = thtDesired[i][j][1] - offsets[i][j][1]
                             #htDesired[i][j][1] = 0+offsets[i][j][1] #+ thtVals[i][j
-                    print("Desired position minus offsets: " + str(pos_minus_offsets))
+                    print("Desired position with offsets: " + str(pos_minus_offsets))
                 elif i=='des thts':
                     print(thtDesired)
                 elif i=='read thts':
@@ -478,7 +484,7 @@ def main():
             if(t-tStartUp < rampTime):
                 rampTime = seconds
                 #need some sort of input for the xrlk functions, like squat has yDes
-                kPVals = home_kp #xrlk.[unwritten dynamic gains function]
+                kPVals = home_kp #xrlk.JacFront(np.array(flattenList(thtDesired)) #xrlk.[unwritten dynamic gains function]
                 kDVals = home_kd #xrlk.[unwritten dynamic gains function]
                 update_des_gains(kPVals, kDVals)
             if(t - tStartUp>= rampTime):
@@ -628,8 +634,10 @@ def commAll(state = '', t = 0):
     for leg in range(len(odrvs)):
         for joint in range(len(odrvs[0])):
             if odrvs[leg][joint] == None:
+                print('NOT DETECTED')
                 continue
             odrv_comm(leg, joint)
+    print('Des:',niceList(thtDesired))
     print('Act:',niceList(thtActual))
 
 def cleanQuit():
@@ -675,7 +683,7 @@ def odrv_comm(leg, joint):
     ###Mixed Position Control
     #both, sagittal, frontal
     ### DEBUGGING
-    print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired_s: " + str(thtDesired[leg][joint][0]) + ", thtActual_s: " + str(odrvs[leg][joint].axis0.controller.theta_s)+ ", thtDesired_f: " + str(thtDesired[leg][joint][1]) + ", thtActual_f: " + str(odrvs[leg][joint].axis0.controller.theta_f))
+    #print("leg: " + str(leg) + ", joint: " + str(joint) + ", thtDesired_s: " + str(thtDesired[leg][joint][0]) + ", thtActual_s: " + str(odrvs[leg][joint].axis0.controller.theta_s)+ ", thtDesired_f: " + str(thtDesired[leg][joint][1]) + ", thtActual_f: " + str(odrvs[leg][joint].axis0.controller.theta_f))
     #odrvs[leg][joint].axis0.controller.set_mixed_pos_setpoint(True, thtDesired[leg][joint][0], 0)
 
     ###Mixed Pos&Vel Control?
@@ -689,7 +697,6 @@ def odrv_comm(leg, joint):
     #no ability to change the gains in real time
     if False:#dynamic_gains:
         odrvs[leg][joint].axis0.controller.set_mixed_gains(True, kPDesired[leg][joint][0], kPDesired[leg][joint][1], kDDesired[leg][joint][0], kDDesired[leg][joint][1])
-
 
 
     ### Read Current States
@@ -842,6 +849,7 @@ def update_des_pos(thtSagVals, thtFrontVals=0):
             thtDesired[i][j][0] = thtSagVals[i][j]+offsets[i][j][0]
             #frontal tht
             thtDesired[i][j][1] = 0+offsets[i][j][1] #+ thtFrontVals[i][j]
+    print('lmao')
     myLogger.appendData(str([t,thtDesired,thtActual,curCommand]))
 
 ###sets kP and kD to kPVals and kDVals, accounts for offsets, logs
